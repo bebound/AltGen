@@ -1,0 +1,45 @@
+# altgen config for the PiliPlus AltStore source.
+# Run: altgen -c examples/piliplus.toml
+# Reproduces the original update_source.py output.
+
+[github]
+repo = "bggRGjQaUbCoE/PiliPlus"
+# token: optional. Precedence: --token > GITHUB_TOKEN env > this value.
+
+[source]
+name = "PiliPlus"
+subtitle = "Unofficial PiliPlus AltStore source"
+description = "Auto-updated AltStore source for PiliPlus"
+icon_url = "https://github.com/bggRGjQaUbCoE/PiliPlus/raw/main/assets/images/logo/logo.png"
+website = "https://github.com/bebound/PiliPlus-AltStore-Repo"
+tint_color = "#00AEEF"
+
+[app]
+name = "PiliPlus"
+bundle_identifier = "com.bggRGjQaUbCoE.PiliPlus"
+developer_name = "bggRGjQaUbCoE"
+subtitle = "Latest PiliPlus release"
+description = "PiliPlus iOS app builds from GitHub releases"
+icon_url = "https://github.com/bggRGjQaUbCoE/PiliPlus/raw/main/assets/images/logo/logo.png"
+screenshots = [
+  "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/home.png",
+  "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/bangumi.png",
+  "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/dynamic.png",
+]
+tint_color = "#00AEEF"
+min_os_version = "14.0"
+
+[versions]
+strip_v_prefix = true
+include_prereleases = false
+asset_pattern = "\\.ipa$"
+build_version_pattern = "\\+(\\d+)\\.ipa$"
+max_versions = 0
+
+[news]
+enabled = true
+title_template = "{name} {version}"
+max_entries = 0
+
+[output]
+path = "apps.json"
