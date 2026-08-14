@@ -1,4 +1,4 @@
-# altgen
+# AltGen
 
 Generate [AltStore](https://faq.altstore.io/developers/make-a-source)
 `apps.json` source files from GitHub Releases IPA assets.
@@ -17,7 +17,7 @@ app config TOML ──────┘
 ## Install
 
 ```sh
-pip install .          # or: pip install git+https://github.com/…
+pip install altgen
 altgen --version
 ```
 
