@@ -1,4 +1,14 @@
+<p align="center">
+  <img src="assets/icon.png" alt="AltGen icon" width="128">
+</p>
+
 # AltGen
+
+<p align="center">
+  <img alt="Python versions" src="https://img.shields.io/pypi/pyversions/altgen.svg?color=00AEEF">
+  <img alt="PyPI version" src="https://img.shields.io/pypi/v/altgen.svg?color=00AEEF">
+  <img alt="MIT license" src="https://img.shields.io/pypi/l/altgen.svg?color=00AEEF">
+</p>
 
 Generate [AltStore](https://faq.altstore.io/developers/make-a-source)
 `apps.json` source files from GitHub Releases IPA assets.
