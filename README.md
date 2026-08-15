@@ -42,6 +42,31 @@ altgen --repo owner/App --app-name App --bundle-id com.owner.app -o apps.json
 Hosting many sources is just many configs — loop over them or use a CI
 matrix, one `altgen -c <config>` per app.
 
+### Merge sources
+
+Combine several apps.json files into one source (e.g. host many apps
+under a single source while keeping one config per app):
+
+```sh
+altgen merge a.json b.json -o merged.json
+altgen merge -c merge.toml a.json b.json    # root values + output from TOML
+altgen merge --name MySource --tint-color "#00AEEF" a.json b.json
+```
+
+- `apps` are taken from the inputs in their given order; `news` entries
+  from all inputs (root `news` plus each app's `news`) are combined and
+  sorted newest-first.
+- Root values (`name`, `subtitle`, `description`, `icon_url`, `website`,
+  `tint_color`) come from the CLI flags or the config's `[source]` table
+  — same rules as build mode, and `--name` (or `[source] name`) is
+  required.
+- Merge configs only support `[source]` and `[output]` tables; build-mode
+  tables (`[github]`, `[app]`, …) are rejected.
+- A duplicate `bundleIdentifier` or duplicate news `identifier` across
+  inputs is an error (exit 2).
+
+See [examples/merge.toml](examples/merge.toml) for a full merge config.
+
 ### GitHub token
 
 Unauthenticated requests are limited to 60/hour; a token raises that to
@@ -129,18 +154,23 @@ altgen [-c PATH] [--repo OWNER/REPO] [--token TOKEN]
        [--app-description] [--app-icon-url] [--app-tint-color] [--min-os-version]
        [--screenshots URL …] [--include-prereleases] [--max-versions N]
        [-o PATH] [-q] [-v] [--version]
+
+altgen merge APPS_JSON… [-c PATH] [--name] [--subtitle] [--description]
+       [--icon-url] [--website] [--tint-color] [-o PATH] [-q]
 ```
 
-- Without `-c`, `--repo`, `--app-name`, and `--bundle-id` are required.
+- Without `-c`, `--repo`, `--app-name`, and `--bundle-id` are required
+  (build mode).
 - `--max-versions N` caps the output after sorting (newest first); it
   defaults to `1` (latest version only) and `0` means all versions.
 - CLI flags override TOML values; `-o` resolves against the current
   directory while `[output] path` resolves against the config file's
   directory (so a config next to its sources works from any CWD).
+- `altgen merge` combines apps.json files; see [Merge sources](#merge-sources).
 - `-v` logs skipped releases (draft / prerelease / no matching assets) to
   stderr; `-q` silences the success message.
-- Exit codes: `0` success, `1` GitHub or write error, `2` usage or config
-  error.
+- Exit codes: `0` success, `1` GitHub, IO, or write error, `2` usage or
+  configuration error.
 
 ## Development
 

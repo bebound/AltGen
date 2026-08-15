@@ -14,6 +14,7 @@ from altgen.config import (
     apply_cli_overrides,
     default_config,
     load_config,
+    load_merge_config,
 )
 
 MINIMAL_TOML = """
@@ -99,6 +100,49 @@ def test_camelcase_key_rejected(tmp_path):
     """
     with pytest.raises(ConfigError, match="unknown key 'bundleIdentifier'"):
         load_config(write_config(tmp_path, toml))
+
+
+def test_merge_config_minimal(tmp_path):
+    toml = """
+[source]
+name = "Merged"
+subtitle = "All apps"
+tint_color = "#00AEEF"
+
+[output]
+path = "out/merged.json"
+"""
+    config = load_merge_config(write_config(tmp_path, toml))
+    assert config.source.name == "Merged"
+    assert config.source.subtitle == "All apps"
+    assert config.source.tint_color == "#00AEEF"
+    assert config.source.icon_url is None
+    assert config.output.path == (tmp_path / "out" / "merged.json").resolve()
+    assert config.config_dir == tmp_path.resolve()
+
+
+def test_merge_config_rejects_build_tables(tmp_path):
+    toml = """
+[github]
+repo = "owner/App"
+
+[source]
+name = "Merged"
+"""
+    with pytest.raises(ConfigError, match=r"only supports \[source\] and \[output\]"):
+        load_merge_config(write_config(tmp_path, toml))
+
+
+def test_merge_config_default_output_path(tmp_path):
+    toml = '[source]\nname = "Merged"\n'
+    config = load_merge_config(write_config(tmp_path, toml))
+    assert config.output.path == (tmp_path / "apps.json").resolve()
+
+
+def test_merge_config_unknown_source_key_rejected(tmp_path):
+    toml = '[source]\nname = "Merged"\nbogus = 1\n'
+    with pytest.raises(ConfigError, match=r"\[source\] unknown key 'bogus'"):
+        load_merge_config(write_config(tmp_path, toml))
 
 
 def test_unknown_table_rejected(tmp_path):

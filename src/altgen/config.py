@@ -87,6 +87,15 @@ class OutputConfig:
 
 
 @dataclass(frozen=True)
+class MergeConfig:
+    """Config for ``altgen merge``: root source metadata + output path."""
+
+    source: SourceConfig
+    output: OutputConfig
+    config_dir: Path
+
+
+@dataclass(frozen=True)
 class AltgenConfig:
     github: GitHubConfig
     source: SourceConfig
@@ -366,6 +375,55 @@ def load_config(path: Path) -> AltgenConfig:
         output=output,
         config_dir=config_dir,
     )
+
+
+def load_merge_config(path: Path) -> MergeConfig:
+    """Load a TOML config for ``altgen merge``.
+
+    Merge configs only carry root-level source metadata and the output
+    path — apps and news come from the input apps.json files — so tables
+    like [github], [app], [versions], and [news] are rejected. Relative
+    ``[output] path`` values resolve against the config file's directory.
+    """
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise ConfigError(f"config file not found: {path}") from None
+    except OSError as exc:
+        raise ConfigError(f"cannot read config file {path}: {exc}") from exc
+    try:
+        raw = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{path}: invalid TOML: {exc}") from exc
+
+    for key in raw:
+        if key not in ("source", "output"):
+            raise ConfigError(
+                f"merge config only supports [source] and [output]; "
+                f"got [{key}]"
+            )
+
+    config_dir = Path(path).resolve().parent
+
+    src_table = _table(raw, "source")
+    _check_keys(src_table, "source")
+    source = SourceConfig(
+        name=_get_str(src_table, "name", "source") or "",
+        subtitle=_get_str(src_table, "subtitle", "source") or "",
+        description=_get_str(src_table, "description", "source") or "",
+        icon_url=_get_str(src_table, "icon_url", "source") or None,
+        website=_get_str(src_table, "website", "source") or None,
+        tint_color=_get_tint(src_table, "tint_color", "source"),
+    )
+
+    out_table = _table(raw, "output")
+    _check_keys(out_table, "output")
+    out_path = Path(_get_str(out_table, "path", "output") or "apps.json")
+    if not out_path.is_absolute():
+        out_path = config_dir / out_path
+    output = OutputConfig(path=out_path)
+
+    return MergeConfig(source=source, output=output, config_dir=config_dir)
 
 
 def default_config(

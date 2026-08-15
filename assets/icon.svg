@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- altgen icon: "A" with a down-arrow crossbar — generate + auto-update -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#00AEEF"/>
+      <stop offset="1" stop-color="#00669F"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="200" fill="url(#bg)"/>
+  <!-- A legs -->
+  <path d="M512 254 L318 774" stroke="#fff" stroke-width="104" stroke-linecap="round"/>
+  <path d="M512 254 L706 774" stroke="#fff" stroke-width="104" stroke-linecap="round"/>
+  <!-- down-arrow crossbar -->
+  <path d="M512 354 V572" stroke="#fff" stroke-width="104" stroke-linecap="round"/>
+  <path d="M452 510 L512 590 L572 510" stroke="#fff" stroke-width="104" stroke-linecap="round" fill="none"/>
+</svg>
