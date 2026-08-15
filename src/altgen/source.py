@@ -26,6 +26,14 @@ def short_date(value: str) -> str:
     return iso_datetime(value).split("T", 1)[0]
 
 
+def human_date(value: str) -> str:
+    """Format the date portion of an ISO datetime as '07 Aug 2026' (for
+    news title templates)."""
+    return datetime.strptime(short_date(value), "%Y-%m-%d").strftime(
+        "%d %b %Y"
+    )
+
+
 def version_from_tag(tag: str, strip_v_prefix: bool) -> str:
     """Release tag minus a leading ``v`` (when configured); ``""`` for
     an empty tag."""
@@ -75,19 +83,35 @@ def build_version_entry(
 def build_news_entry(
     cfg: AltgenConfig, release: dict, version: str, tag: str
 ) -> dict:
-    """One AltStore news entry for one release."""
+    """One AltStore news entry for one release.
+
+    Key order follows the AltStore news spec. ``appID`` is the app's
+    ``bundle_identifier``. The date is a full ISO timestamp, and the
+    identifier is derived from the release tag (``release-<tag>``). Title
+    and caption templates may use ``{name}``, ``{version}``, ``{tag}``,
+    and ``{date}`` (humanized, e.g. 07 Aug 2026) placeholders.
+    """
+    published = release.get("published_at", "")
+    fmt = {
+        "name": cfg.app.name,
+        "version": version,
+        "tag": tag,
+        "date": human_date(published),
+    }
+    title = cfg.news.title_template.format(**fmt)
+    caption = cfg.news.caption_template.format(**fmt)
     entry: dict = {
-        "title": cfg.news.title_template.format(
-            name=cfg.app.name, version=version
-        ),
-        "identifier": f"release-{version}",
-        "caption": release.get("name") or f"Version {version} released",
-        "date": short_date(release.get("published_at", "")),
+        "appID": cfg.app.bundle_identifier,
+        "title": title,
+        "identifier": f"release-{tag}",
+        "caption": caption,
+        "date": iso_datetime(published),
     }
     if cfg.app.tint_color is not None:
         entry["tintColor"] = cfg.app.tint_color
+    if cfg.news.image_url is not None:
+        entry["imageURL"] = cfg.news.image_url
     entry["notify"] = True
-    entry["appID"] = cfg.app.bundle_identifier
     entry["url"] = f"https://github.com/{cfg.github.repo}/releases/tag/{tag}"
     return entry
 
@@ -137,6 +161,7 @@ def build_source(
             log(reason)
 
     news: list[dict] = []
+    news_versions: list[str] = []
     for release in releases:
         tag = release.get("tag_name") or ""
         if release.get("draft"):
@@ -168,6 +193,7 @@ def build_source(
 
         if cfg.news.enabled:
             news.append(build_news_entry(cfg, release, version, tag))
+            news_versions.append(version)
 
     app_entry["versions"] = sorted(
         app_entry["versions"],
@@ -176,6 +202,10 @@ def build_source(
     )
     if cfg.versions.max_versions is not None:
         app_entry["versions"] = app_entry["versions"][: cfg.versions.max_versions]
+        # News follows the same convention as versions: one entry per
+        # version, so drop news for versions that were capped away.
+        kept = {v["version"] for v in app_entry["versions"]}
+        news = [n for n, v in zip(news, news_versions) if v in kept]
 
     news.sort(key=lambda n: n.get("date", ""), reverse=True)
     if cfg.news.max_entries is not None:

@@ -25,7 +25,9 @@ _REPO_RE = re.compile(r"^[\w.-]+/[\w.-]+$")
 
 DEFAULT_ASSET_PATTERN = r"\.ipa$"
 DEFAULT_BUILD_VERSION_PATTERN = r"\+(\d+)\.ipa$"
-DEFAULT_NEWS_TITLE_TEMPLATE = "{name} {version}"
+DEFAULT_NEWS_TITLE_TEMPLATE = "{name} {version} - {date}"
+DEFAULT_NEWS_CAPTION_TEMPLATE = "{name} {version} is available."
+NEWS_TEMPLATE_KEYS = ("name", "version", "tag", "date")
 
 
 # ---------------------------------------------------------------------------
@@ -67,13 +69,15 @@ class VersionsConfig:
     include_prereleases: bool = False
     asset_pattern: str = DEFAULT_ASSET_PATTERN
     build_version_pattern: str = DEFAULT_BUILD_VERSION_PATTERN
-    max_versions: int | None = None  # None = unlimited
+    max_versions: int | None = 1  # default: latest version only; None = all
 
 
 @dataclass(frozen=True)
 class NewsConfig:
     enabled: bool = True
     title_template: str = DEFAULT_NEWS_TITLE_TEMPLATE
+    caption_template: str = DEFAULT_NEWS_CAPTION_TEMPLATE
+    image_url: str | None = None  # omitted from JSON when unset
     max_entries: int | None = None  # None = unlimited
 
 
@@ -141,7 +145,13 @@ _TABLES: dict[str, set[str]] = {
         "build_version_pattern",
         "max_versions",
     },
-    "news": {"enabled", "title_template", "max_entries"},
+    "news": {
+        "enabled",
+        "title_template",
+        "caption_template",
+        "image_url",
+        "max_entries",
+    },
     "output": {"path"},
 }
 
@@ -182,10 +192,13 @@ def _get_bool(table: dict, key: str, section: str, default: bool) -> bool:
     return value
 
 
-def _get_cap(table: dict, key: str, section: str) -> int | None:
-    """Optional non-negative int cap; 0 and absent both mean unlimited."""
-    if key not in table or table[key] in (None, 0):
-        return None
+def _get_cap(
+    table: dict, key: str, section: str, *, default: int | None
+) -> int | None:
+    """Optional non-negative int cap; 0 means unlimited, absent/None falls
+    back to ``default``."""
+    if key not in table or table[key] is None:
+        return default
     value = table[key]
     if isinstance(value, bool) or not isinstance(value, int):
         raise ConfigError(
@@ -193,6 +206,8 @@ def _get_cap(table: dict, key: str, section: str) -> int | None:
         )
     if value < 0:
         raise ConfigError(f"[{section}] {key} must be >= 0, got {value}")
+    if value == 0:
+        return None
     return value
 
 
@@ -203,6 +218,24 @@ def _get_screenshots(table: dict, section: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(s, str) for s in value):
         raise ConfigError(f"[{section}] screenshots must be a list of strings")
     return tuple(value)
+
+
+def _get_template(
+    table: dict, key: str, section: str, default: str | None
+) -> str | None:
+    """String template using NEWS_TEMPLATE_KEYS placeholders, or ``default``
+    when absent. Validated by formatting with dummy values, so a bad
+    placeholder is a config error instead of a runtime crash."""
+    value = _get_str(table, key, section)
+    if value is None:
+        return default
+    try:
+        value.format(**{k: "" for k in NEWS_TEMPLATE_KEYS})
+    except (KeyError, IndexError, ValueError) as exc:
+        raise ConfigError(
+            f"[{section}] {key} has an invalid placeholder: {exc}"
+        ) from None
+    return value
 
 
 def _get_tint(table: dict, key: str, section: str) -> str | None:
@@ -296,16 +329,25 @@ def load_config(path: Path) -> AltgenConfig:
             ver_table, "build_version_pattern", "versions"
         )
         or DEFAULT_BUILD_VERSION_PATTERN,
-        max_versions=_get_cap(ver_table, "max_versions", "versions"),
+        max_versions=_get_cap(
+            ver_table, "max_versions", "versions", default=1
+        ),
     )
 
     news_table = _table(raw, "news")
     _check_keys(news_table, "news")
     news = NewsConfig(
         enabled=_get_bool(news_table, "enabled", "news", True),
-        title_template=_get_str(news_table, "title_template", "news")
-        or DEFAULT_NEWS_TITLE_TEMPLATE,
-        max_entries=_get_cap(news_table, "max_entries", "news"),
+        title_template=_get_template(
+            news_table, "title_template", "news", DEFAULT_NEWS_TITLE_TEMPLATE
+        ),
+        caption_template=_get_template(
+            news_table, "caption_template", "news", DEFAULT_NEWS_CAPTION_TEMPLATE
+        ),
+        image_url=_get_str(news_table, "image_url", "news") or None,
+        max_entries=_get_cap(
+            news_table, "max_entries", "news", default=None
+        ),
     )
 
     out_table = _table(raw, "output")

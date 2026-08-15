@@ -34,9 +34,12 @@ def test_minimal_config_defaults(tmp_path):
     assert config.app.name == "App"
     assert config.versions.strip_v_prefix is True
     assert config.versions.include_prereleases is False
-    assert config.versions.max_versions is None
+    assert config.versions.max_versions == 1  # default: latest version only
     assert config.news.enabled is True
     assert config.news.max_entries is None
+    assert config.news.title_template == "{name} {version} - {date}"
+    assert config.news.caption_template == "{name} {version} is available."
+    assert config.news.image_url is None
     assert config.output.path == (tmp_path / "apps.json").resolve()
 
 
@@ -148,9 +151,33 @@ def test_negative_max_versions_rejected(tmp_path):
         load_config(write_config(tmp_path, toml))
 
 
-def test_max_versions_zero_means_unlimited(tmp_path):
+def test_max_versions_zero_means_all(tmp_path):
     toml = MINIMAL_TOML + "\n[versions]\nmax_versions = 0\n"
     assert load_config(write_config(tmp_path, toml)).versions.max_versions is None
+
+
+def test_max_versions_explicit_value(tmp_path):
+    toml = MINIMAL_TOML + "\n[versions]\nmax_versions = 5\n"
+    assert load_config(write_config(tmp_path, toml)).versions.max_versions == 5
+
+
+def test_invalid_news_template_placeholder(tmp_path):
+    toml = MINIMAL_TOML + '\n[news]\ntitle_template = "{name} {bogus}"\n'
+    with pytest.raises(ConfigError, match="invalid placeholder"):
+        load_config(write_config(tmp_path, toml))
+
+
+def test_news_caption_template_and_image_url(tmp_path):
+    toml = MINIMAL_TOML + """
+[news]
+title_template = "{name} {version} - {date}"
+caption_template = "New {name} update available!"
+image_url = "https://e.com/news.png"
+"""
+    config = load_config(write_config(tmp_path, toml))
+    assert config.news.title_template == "{name} {version} - {date}"
+    assert config.news.caption_template == "New {name} update available!"
+    assert config.news.image_url == "https://e.com/news.png"
 
 
 def test_bool_rejected_for_int(tmp_path):
@@ -232,6 +259,7 @@ def test_default_config_cli_defaults():
     assert config.output.path == (Path.cwd() / "apps.json").resolve()
     assert config.app.icon_url is None
     assert config.app.tint_color is None
+    assert config.versions.max_versions == 1
 
 
 def test_cli_overrides_toml(tmp_path):
@@ -299,7 +327,7 @@ def test_cli_overrides_absent_flags_do_not_clobber(tmp_path):
     assert merged.versions.include_prereleases is True
 
 
-def test_cli_max_versions_zero_means_unlimited():
+def test_cli_max_versions_zero_means_all():
     config = default_config("owner/App", "App", "com.owner.app")
     args = argparse.Namespace(max_versions=0)
     merged = apply_cli_overrides(config, args)

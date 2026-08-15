@@ -90,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-versions",
         type=int,
         metavar="N",
-        help="keep only the newest N versions (0 = unlimited)",
+        help="keep only the newest N versions (default: 1; 0 = all versions)",
     )
     parser.add_argument(
         "-o",

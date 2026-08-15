@@ -16,7 +16,7 @@ tint_color = "#00AEEF"
 
 [app]
 name = "PiliPlus"
-bundle_identifier = "com.bggRGjQaUbCoE.PiliPlus"
+bundle_identifier = "com.example.PiliPlus"
 developer_name = "bggRGjQaUbCoE"
 subtitle = "Latest PiliPlus release"
 description = "PiliPlus iOS app builds from GitHub releases"
@@ -34,11 +34,15 @@ strip_v_prefix = true
 include_prereleases = false
 asset_pattern = "\\.ipa$"
 build_version_pattern = "\\+(\\d+)\\.ipa$"
-max_versions = 0
+# max_versions 未设置：默认只输出最新版本（0 = 全部版本）
 
 [news]
 enabled = true
-title_template = "{name} {version}"
+# placeholders: {name} {version} {tag} {date}
+# title_template defaults to "{name} {version} - {date}" — e.g. "PiliPlus 2.1.0 - 12 Jul 2026"
+# caption_template = "New {name} update available!"   # default: "{name} {version} is available."
+# image_url = "https://example.com/news.png"          # omitted when unset
+# news appID comes from [app] bundle_identifier
 max_entries = 0
 
 [output]

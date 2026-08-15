@@ -86,12 +86,15 @@ strip_v_prefix = true            # tag "v1.2.3" → version "1.2.3"
 include_prereleases = false      # drafts are always skipped
 asset_pattern = "\\.ipa$"        # regex, case-insensitive search on asset name
 build_version_pattern = "\\+(\\d+)\\.ipa$"  # group 1 = buildVersion; no match → key omitted
-max_versions = 0                 # 0 = unlimited; caps after sorting (newest first)
+max_versions = 1                 # default: newest version only; 0 = all versions
 
 [news]
 enabled = true
-title_template = "{name} {version}"
-max_entries = 0                  # 0 = unlimited; caps after sorting
+title_template = "{name} {version} - {date}"  # default; placeholders: {name} {version} {tag} {date} (e.g. 07 Aug 2026)
+caption_template = ""                     # optional; default: "{name} {version} is available."
+image_url = ""                            # optional; omitted from JSON when unset
+                                          # news appID = [app] bundle_identifier
+max_entries = 0                           # 0 = unlimited; caps after sorting; news already limited to versions kept by max_versions
 
 [output]
 path = "apps.json"               # resolved against THIS file's directory
@@ -102,6 +105,16 @@ path = "apps.json"               # resolved against THIS file's directory
 - Versions are sorted newest-first by `(date, version)`; one version entry
   per matching release asset (a release with several IPAs produces several
   entries sharing the same version).
+- By default only the newest version is emitted (`max_versions = 1`); set
+  `max_versions = 0` (or `--max-versions 0`) to include all versions.
+- News follows the same convention: one news entry per kept version, so
+  versions dropped by `max_versions` contribute no news either. `[news]
+  max_entries` can further cap the list.
+- News entries follow the AltStore spec: `appID` first (the app's
+  `bundle_identifier`), a full ISO `date` timestamp, `identifier` derived
+  from the release tag (`release-<tag>`), and an optional `imageURL`;
+  `title_template` / `caption_template` support `{name}`, `{version}`,
+  `{tag}`, `{date}` placeholders.
 - A release with no matching asset contributes nothing — not even a news
   entry. One news entry is emitted per release that has assets.
 - Empty output (no releases, only drafts, …) is a valid source: altgen
@@ -119,6 +132,8 @@ altgen [-c PATH] [--repo OWNER/REPO] [--token TOKEN]
 ```
 
 - Without `-c`, `--repo`, `--app-name`, and `--bundle-id` are required.
+- `--max-versions N` caps the output after sorting (newest first); it
+  defaults to `1` (latest version only) and `0` means all versions.
 - CLI flags override TOML values; `-o` resolves against the current
   directory while `[output] path` resolves against the config file's
   directory (so a config next to its sources works from any CWD).

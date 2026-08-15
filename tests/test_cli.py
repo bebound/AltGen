@@ -244,6 +244,7 @@ def test_include_prereleases_flag(tmp_path, run):
             "--bundle-id", "com.owner.app",
             "-o", str(tmp_path / "apps.json"),
             "--include-prereleases",
+            "--max-versions", "0",
         ],
         releases=[
             make_release(tag="v2.0.0", prerelease=True),
@@ -272,6 +273,47 @@ def test_max_versions_flag(tmp_path, run):
     assert code == 0, err
     data = json.loads((tmp_path / "apps.json").read_text())
     assert [v["version"] for v in data["apps"][0]["versions"]] == ["2.0.0"]
+
+
+def test_default_keeps_only_latest_version(tmp_path, run):
+    code, out, err, _ = run(
+        [
+            "--repo", "owner/App",
+            "--app-name", "App",
+            "--bundle-id", "com.owner.app",
+            "-o", str(tmp_path / "apps.json"),
+        ],
+        releases=[
+            make_release(tag="v1.0.0", published="2024-01-01T00:00:00Z"),
+            make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
+        ],
+    )
+    assert code == 0, err
+    data = json.loads((tmp_path / "apps.json").read_text())
+    assert [v["version"] for v in data["apps"][0]["versions"]] == ["2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
+
+
+def test_max_versions_zero_means_all(tmp_path, run):
+    code, out, err, _ = run(
+        [
+            "--repo", "owner/App",
+            "--app-name", "App",
+            "--bundle-id", "com.owner.app",
+            "-o", str(tmp_path / "apps.json"),
+            "--max-versions", "0",
+        ],
+        releases=[
+            make_release(tag="v1.0.0", published="2024-01-01T00:00:00Z"),
+            make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
+        ],
+    )
+    assert code == 0, err
+    data = json.loads((tmp_path / "apps.json").read_text())
+    assert [v["version"] for v in data["apps"][0]["versions"]] == [
+        "2.0.0",
+        "1.0.0",
+    ]
 
 
 def test_invalid_tint_via_cli_exits_2(capsys):

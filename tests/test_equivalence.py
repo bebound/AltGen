@@ -1,7 +1,9 @@
-"""Byte-for-byte equivalence with the original update_source.py output.
+"""Byte-for-byte equivalence for the example config, offline.
 
-Both fixtures were captured from the same PiliPlus release data: the new
-pipeline must reproduce the old script's apps.json exactly, offline.
+Fixtures were captured from the PiliPlus release data; the example config
+relies on the default max_versions = 1 (newest version only), so the
+expected apps.json contains a single version entry and its single news
+entry.
 """
 
 from pathlib import Path

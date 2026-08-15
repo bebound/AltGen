@@ -177,11 +177,13 @@ def test_drafts_and_prereleases_skipped():
     ]
     data = build_source(cfg, releases)
     assert [v["version"] for v in data["apps"][0]["versions"]] == ["1.0.0"]
-    assert [n["identifier"] for n in data["news"]] == ["release-1.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["release-v1.0.0"]
 
 
 def test_prereleases_included_when_configured():
-    cfg = make_config(versions=VersionsConfig(include_prereleases=True))
+    cfg = make_config(
+        versions=VersionsConfig(include_prereleases=True, max_versions=None)
+    )
     releases = [
         make_release(tag="v2.0.0", prerelease=True),
         make_release(tag="v1.0.0"),
@@ -211,7 +213,7 @@ def test_empty_tag_skipped():
 
 
 def test_multiple_ipas_yield_multiple_versions_single_news():
-    cfg = make_config()
+    cfg = make_config(versions=VersionsConfig(max_versions=None))
     release = make_release(
         tag="v1.0.0",
         assets=[make_ipa_asset(build="1"), make_ipa_asset(build="2")],
@@ -223,7 +225,7 @@ def test_multiple_ipas_yield_multiple_versions_single_news():
 
 
 def test_versions_sorted_by_date_then_version_desc():
-    cfg = make_config()
+    cfg = make_config(versions=VersionsConfig(max_versions=None))
     releases = [
         make_release(tag="v2.9.0", published="2024-01-02T00:00:00Z"),
         make_release(tag="v2.10.0", published="2024-01-01T00:00:00Z"),
@@ -236,16 +238,29 @@ def test_versions_sorted_by_date_then_version_desc():
 
 
 def test_news_sorted_by_date_desc():
-    cfg = make_config()
+    cfg = make_config(versions=VersionsConfig(max_versions=None))
     releases = [
         make_release(tag="v1.0.0", published="2024-01-01T00:00:00Z"),
         make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
     ]
     data = build_source(cfg, releases)
     assert [n["identifier"] for n in data["news"]] == [
-        "release-2.0.0",
-        "release-1.0.0",
+        "release-v2.0.0",
+        "release-v1.0.0",
     ]
+
+
+def test_default_keeps_only_latest_version():
+    """max_versions defaults to 1: the newest release wins, older versions
+    are dropped — and their news entries with them (one news per version)."""
+    cfg = make_config()
+    releases = [
+        make_release(tag="v1.0.0", published="2024-01-01T00:00:00Z"),
+        make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
+    ]
+    data = build_source(cfg, releases)
+    assert [v["version"] for v in data["apps"][0]["versions"]] == ["2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
 
 
 def test_max_versions_caps_after_sort():
@@ -259,13 +274,16 @@ def test_max_versions_caps_after_sort():
 
 
 def test_news_max_entries_caps_after_sort():
-    cfg = make_config(news=NewsConfig(max_entries=1))
+    cfg = make_config(
+        versions=VersionsConfig(max_versions=None),
+        news=NewsConfig(max_entries=1),
+    )
     releases = [
         make_release(tag="v1.0.0", published="2024-01-01T00:00:00Z"),
         make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
     ]
     data = build_source(cfg, releases)
-    assert [n["identifier"] for n in data["news"]] == ["release-2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
 
 
 def test_news_disabled():
@@ -281,31 +299,61 @@ def test_news_entry_fields_and_template():
             bundle_identifier="com.x.y",
             tint_color="#123456",
         ),
-        news=NewsConfig(title_template="{name} — {version}!"),
+        news=NewsConfig(
+            title_template="{name} — {version}!",
+            caption_template="New {name} update available!",
+            image_url="https://e.com/news.png",
+        ),
     )
     release = make_release(tag="v1.0.0", name="Big release")
     entry = build_news_entry(cfg, release, "1.0.0", "v1.0.0")
+    # AltStore news spec key order: appID first (when configured)
     assert list(entry.keys()) == [
+        "appID",
         "title",
         "identifier",
         "caption",
         "date",
         "tintColor",
+        "imageURL",
         "notify",
-        "appID",
         "url",
     ]
-    assert entry["title"] == "MyApp — 1.0.0!"
-    assert entry["caption"] == "Big release"
-    assert entry["url"] == "https://github.com/owner/App/releases/tag/v1.0.0"
     assert entry["appID"] == "com.x.y"
+    assert entry["title"] == "MyApp — 1.0.0!"
+    # identifier is derived from the raw tag, date is a full ISO timestamp
+    assert entry["identifier"] == "release-v1.0.0"
+    assert entry["date"] == "2024-01-01T00:00:00Z"
+    assert entry["caption"] == "New MyApp update available!"
+    assert entry["imageURL"] == "https://e.com/news.png"
+    assert entry["url"] == "https://github.com/owner/App/releases/tag/v1.0.0"
 
-    # caption falls back when release name is missing; tintColor omitted when unset
+
+def test_news_defaults_use_bundle_identifier_as_app_id():
+    """appID is the app's bundle_identifier; tintColor and imageURL are
+    omitted when unconfigured."""
     cfg = make_config()
-    release = make_release(tag="v1.0.0", name=None)
+    entry = build_news_entry(cfg, make_release(tag="v1.0.0"), "1.0.0", "v1.0.0")
+    assert list(entry.keys()) == [
+        "appID",
+        "title",
+        "identifier",
+        "caption",
+        "date",
+        "notify",
+        "url",
+    ]
+    assert entry["appID"] == "com.owner.app"
+    assert entry["title"] == "App 1.0.0 - 01 Jan 2024"
+    assert entry["caption"] == "App 1.0.0 is available."
+
+
+def test_news_default_title_has_humanized_date():
+    """The default title template is "{name} {version} - {date}"."""
+    cfg = make_config()
+    release = make_release(tag="v1.0.0", published="2026-08-07T22:33:10Z")
     entry = build_news_entry(cfg, release, "1.0.0", "v1.0.0")
-    assert entry["caption"] == "Version 1.0.0 released"
-    assert "tintColor" not in entry
+    assert entry["title"] == "App 1.0.0 - 07 Aug 2026"
 
 
 def test_custom_asset_pattern():
