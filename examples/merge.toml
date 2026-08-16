@@ -12,7 +12,7 @@ subtitle = "Auto-updated AltStore sources built with altgen"
 description = "AltStore sources generated from GitHub Releases by altgen"
 icon_url = "https://raw.githubusercontent.com/bebound/altgen/master/assets/icon.png"
 website = "https://github.com/bebound/altgen"
-tint_color = "#00AEEF"
+tint_color = "#4192cd"
 
 [output]
 path = "all-apps.json"   # resolved against THIS file's directory

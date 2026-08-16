@@ -4,7 +4,7 @@
   "description": "Auto-updated AltStore source for PiliPlus",
   "iconURL": "https://github.com/bggRGjQaUbCoE/PiliPlus/raw/main/assets/images/logo/logo.png",
   "website": "https://github.com/bebound/PiliPlus-AltStore-Repo",
-  "tintColor": "#00AEEF",
+  "tintColor": "#73b480",
   "apps": [
     {
       "name": "PiliPlus",
@@ -18,7 +18,7 @@
         "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/bangumi.png",
         "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/dynamic.png"
       ],
-      "tintColor": "#00AEEF",
+      "tintColor": "#73b480",
       "versions": [
         {
           "version": "2.1.0",
@@ -40,7 +40,7 @@
       "identifier": "release-2.1.0",
       "caption": "PiliPlus 2.1.0 is available.",
       "date": "2026-07-12T04:26:28Z",
-      "tintColor": "#00AEEF",
+      "tintColor": "#73b480",
       "notify": true,
       "url": "https://github.com/bggRGjQaUbCoE/PiliPlus/releases/tag/2.1.0"
     }

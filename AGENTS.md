@@ -19,6 +19,8 @@ uv build           # build sdist + wheel
 
 Requires Python >= 3.10. The virtualenv is `.venv/`.
 
+- Use `jq` to read/parse JSON files (fixtures, example outputs, etc.).
+
 ## Layout
 
 - `src/altgen/__init__.py` — `__version__` is the single source of truth.

@@ -4,7 +4,7 @@
   "description": "AltStore sources generated from GitHub Releases by altgen",
   "iconURL": "https://raw.githubusercontent.com/bebound/altgen/master/assets/icon.png",
   "website": "https://github.com/bebound/altgen",
-  "tintColor": "#00AEEF",
+  "tintColor": "#4192cd",
   "apps": [
     {
       "name": "PiliPlus",
@@ -18,7 +18,7 @@
         "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/bangumi.png",
         "https://raw.githubusercontent.com/bggRGjQaUbCoE/PiliPlus/refs/heads/main/assets/screenshots/dynamic.png"
       ],
-      "tintColor": "#00AEEF",
+      "tintColor": "#73b480",
       "versions": [
         {
           "version": "2.1.0",
@@ -35,12 +35,12 @@
   ],
   "news": [
     {
-      "appID": "com.bggRGjQaUbCoE.PiliPlus",
+      "appID": "com.example.PiliPlus",
       "title": "PiliPlus 2.1.0 - 12 Jul 2026",
       "identifier": "release-2.1.0",
       "caption": "PiliPlus 2.1.0 is available.",
       "date": "2026-07-12T04:26:28Z",
-      "tintColor": "#00AEEF",
+      "tintColor": "#73b480",
       "notify": true,
       "url": "https://github.com/bggRGjQaUbCoE/PiliPlus/releases/tag/2.1.0"
     }

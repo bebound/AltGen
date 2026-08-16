@@ -209,5 +209,7 @@ def test_cli_merge_duplicate_apps_exit_2(tmp_path, capsys):
 
 def test_cli_merge_quiet(tmp_path, capsys):
     f1 = write_doc(tmp_path, "a.json", make_doc(apps=[make_app()]))
-    assert main(["merge", str(f1), "--name", "M", "-q"]) == 0
+    out = tmp_path / "merged.json"
+    assert main(["merge", str(f1), "--name", "M", "-q", "-o", str(out)]) == 0
     assert capsys.readouterr().out == ""
+    assert out.exists()
