@@ -58,10 +58,20 @@ def test_merge_basic_key_order_and_collection():
     assert list(data.keys()) == ["name", "subtitle", "description", "apps", "news"]
     assert data["name"] == "Merged"
     assert data["subtitle"] == "Sub"
-    # apps keep input order
+    # apps sorted by name (equal names keep input order)
     assert [a["bundleIdentifier"] for a in data["apps"]] == ["com.a", "com.b"]
     # news gathered from root + app levels, sorted newest first
     assert [n["identifier"] for n in data["news"]] == ["r2", "r1"]
+
+
+def test_merge_apps_sorted_by_name():
+    doc1 = make_doc(apps=[make_app(bundle_id="com.z", name="Zeta")])
+    doc2 = make_doc(apps=[make_app(bundle_id="com.a", name="Alpha")])
+    doc3 = make_doc(apps=[make_app(bundle_id="com.m", name="Mid")])
+    data = merge_sources(
+        [("z.json", doc1), ("a.json", doc2), ("m.json", doc3)], SOURCE
+    )
+    assert [a["name"] for a in data["apps"]] == ["Alpha", "Mid", "Zeta"]
 
 
 def test_merge_root_optionals():

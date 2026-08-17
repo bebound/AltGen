@@ -63,7 +63,7 @@ altgen merge -c merge.toml a.json b.json    # root values + output from TOML
 altgen merge --name MySource --tint-color "#00AEEF" a.json b.json
 ```
 
-- `apps` are taken from the inputs in their given order; `news` entries
+- `apps` are taken from the inputs and sorted by name; `news` entries
   from all inputs (root `news` plus each app's `news`) are combined and
   sorted newest-first.
 - Root values (`name`, `subtitle`, `description`, `icon_url`, `website`,

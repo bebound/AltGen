@@ -1,9 +1,10 @@
 """Merge multiple apps.json documents into a single AltStore source.
 
-``apps`` and ``news`` are extracted from the input files in their given
-order; root-level metadata comes from the merge config or CLI. Duplicate
-app bundle identifiers and duplicate news identifiers are rejected, since
-a valid AltStore source must not contain them.
+``apps`` are extracted from the input files and sorted by name; ``news``
+entries are extracted in their given order and combined; root-level
+metadata comes from the merge config or CLI. Duplicate app bundle
+identifiers and duplicate news identifiers are rejected, since a valid
+AltStore source must not contain them.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ def merge_sources(inputs: list[tuple[str, dict]], source: SourceConfig) -> dict:
     """Merge ``inputs`` (``(path, parsed JSON)`` pairs) into one source
     document.
 
-    App entries keep their input order; news entries from each input (root
+    App entries are sorted by name; news entries from each input (root
     ``news`` plus each app's ``news``) are combined and sorted newest-first
     by ``date``.
     """
@@ -70,6 +71,7 @@ def merge_sources(inputs: list[tuple[str, dict]], source: SourceConfig) -> dict:
         for entry in doc_news or []:
             add_news(entry, path)
 
+    apps.sort(key=lambda a: a.get("name") or "")
     news.sort(key=lambda n: n.get("date", ""), reverse=True)
 
     data: dict = {
