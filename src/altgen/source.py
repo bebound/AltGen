@@ -42,20 +42,38 @@ def version_from_tag(tag: str, strip_v_prefix: bool) -> str:
     return tag
 
 
-def extract_build_version(filename: str, pattern: re.Pattern) -> str:
-    """Extract buildVersion via ``pattern``.
+def extract_match(value: str, pattern: re.Pattern) -> str:
+    """Extract a substring via ``pattern``.
 
     Uses capture group 1 when the pattern has groups, otherwise the whole
-    match. Returns ``""`` when the filename is empty or nothing matches.
+    match. Returns ``""`` when ``value`` is empty or nothing matches.
     """
-    if not filename:
+    if not value:
         return ""
-    match = pattern.search(filename)
+    match = pattern.search(value)
     if not match:
         return ""
     if match.groups():
         return match.group(1)
     return match.group(0)
+
+
+def resolve_version(
+    cfg: AltgenConfig, tag_version: str, source_value: str
+) -> str:
+    """App version for one release asset.
+
+    With ``version_pattern`` configured, extract the version from the
+    release ``name`` (default) or the asset filename (``version_source =
+    "filename"``); fall back to the tag-derived version when the pattern
+    does not match or is unset.
+    """
+    if cfg.versions.version_pattern is None:
+        return tag_version
+    extracted = extract_match(source_value or "", cfg.version_re)
+    if extracted:
+        return extracted
+    return tag_version
 
 
 def build_version_entry(
@@ -64,9 +82,7 @@ def build_version_entry(
     """One AltStore version entry for one release asset."""
     download_url = asset.get("browser_download_url", "")
     release_body = (release.get("body") or "").strip() or cfg.app.description or ""
-    build_version = extract_build_version(
-        asset.get("name") or "", cfg.build_re
-    )
+    build_version = extract_match(asset.get("name") or "", cfg.build_re)
 
     entry: dict = {"version": version}
     if build_version:
@@ -160,7 +176,7 @@ def build_source(
             log(reason)
 
     news: list[dict] = []
-    news_versions: list[str] = []
+    news_versions: list[list[str]] = []
     for release in releases:
         tag = release.get("tag_name") or ""
         if release.get("draft"):
@@ -170,8 +186,8 @@ def build_source(
             log_skip(f"skip {tag}: prerelease")
             continue
 
-        version = version_from_tag(tag, cfg.versions.strip_v_prefix)
-        if not version:
+        tag_version = version_from_tag(tag, cfg.versions.strip_v_prefix)
+        if not tag_version:
             log_skip(f"skip {tag or '<no tag>'}: empty version")
             continue
 
@@ -185,14 +201,28 @@ def build_source(
             log_skip(f"skip {tag}: no matching assets")
             continue
 
+        # Version comes from the release name (default) or the asset
+        # filename (version_source = "filename"), falling back to the tag.
+        release_versions: list[str] = []
         for asset in ipa_assets:
+            source_value = (
+                (release.get("name") or "")
+                if cfg.versions.version_source == "release"
+                else (asset.get("name") or "")
+            )
+            version = resolve_version(cfg, tag_version, source_value)
+            release_versions.append(version)
             app_entry["versions"].append(
                 build_version_entry(cfg, release, asset, version)
             )
 
         if cfg.news.enabled:
-            news.append(build_news_entry(cfg, release, version, tag))
-            news_versions.append(version)
+            news.append(
+                build_news_entry(cfg, release, release_versions[0], tag)
+            )
+            # Track every asset version so the cap filter below can match
+            # this release's news when any of its versions is kept.
+            news_versions.append(release_versions)
 
     app_entry["versions"] = sorted(
         app_entry["versions"],
@@ -202,9 +232,12 @@ def build_source(
     if cfg.versions.max_versions is not None:
         app_entry["versions"] = app_entry["versions"][: cfg.versions.max_versions]
         # News follows the same convention as versions: one entry per
-        # version, so drop news for versions that were capped away.
+        # release, so drop news for releases whose versions were all
+        # capped away.
         kept = {v["version"] for v in app_entry["versions"]}
-        news = [n for n, v in zip(news, news_versions) if v in kept]
+        news = [
+            n for n, vs in zip(news, news_versions) if any(v in kept for v in vs)
+        ]
 
     news.sort(key=lambda n: n.get("date", ""), reverse=True)
     if cfg.news.max_entries is not None:

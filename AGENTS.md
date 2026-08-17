@@ -69,12 +69,19 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
    `merge_sources(inputs, source)` are pure functions; tests exercise
    them directly with fixture data.
 5. **Version semantics.**
+   - The app `version` defaults to the release tag (minus an optional `v`
+     via `strip_v_prefix`). When `version_pattern` is set, the version is
+     extracted from the release `name` (default) or the asset filename
+     (`version_source = "filename"`) instead; on no match it falls back to
+     the tag-derived value. A release with several IPAs yields one version
+     each under `version_source = "filename"`.
    - `max_versions` defaults to `1` (newest version only); `0` means all
      versions; the internal "unlimited" sentinel is `None` (see
      `_get_cap`).
-   - News follows `max_versions`: one news entry per kept version, so
-     versions dropped by the cap contribute no news. `news.max_entries`
-     caps further.
+   - News follows `max_versions`: one news entry per release, dropped when
+     the cap removes all of that release's versions (`news_versions` tracks
+     every asset version so a multi-IPA release's news survives if any of
+     its versions is kept). `news.max_entries` caps further.
    - News `identifier` = `release-<tag>` (raw release tag, not the
      v-stripped version); news `date` is a full ISO timestamp, while
      version-entry dates are `YYYY-MM-DD` (short date).

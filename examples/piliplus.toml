@@ -34,7 +34,13 @@ strip_v_prefix = true
 include_prereleases = false
 asset_pattern = "\\.ipa$"
 build_version_pattern = "\\+(\\d+)\\.ipa$"
-# max_versions 未设置：默认只输出最新版本（0 = 全部版本）
+# The version defaults to the release tag (strip_v_prefix removes a leading "v").
+# If a release tag carries no version (e.g. youproextra-ipa2), configure a
+# regex to extract it from the release name or IPA filename instead; on no
+# match the version falls back to the tag-derived value:
+# version_pattern = "_([0-9]+[.][0-9]+[.][0-9]+_[0-9]+[.][0-9]+[.][0-9]+)$"  # e.g. YouProExtra_21.24.3_1.3.1 -> 21.24.3_1.3.1
+# version_source = "release"    # "release" (default, release name field) or "filename" (IPA filename)
+# max_versions unset: only the newest version is emitted (0 = all versions)
 
 [news]
 enabled = true

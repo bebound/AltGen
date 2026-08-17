@@ -122,6 +122,9 @@ strip_v_prefix = true            # tag "v1.2.3" → version "1.2.3"
 include_prereleases = false      # drafts are always skipped
 asset_pattern = "\\.ipa$"        # regex, case-insensitive search on asset name
 build_version_pattern = "\\+(\\d+)\\.ipa$"  # group 1 = buildVersion; no match → key omitted
+# version_pattern = "…"         # optional: extract version with this regex instead of the tag
+                                 # (for projects whose tags lack a version); no match → tag-derived version
+# version_source = "release"     # where version_pattern runs: "release" (default, release name) or "filename" (IPA asset name)
 max_versions = 1                 # default: newest version only; 0 = all versions
 
 [news]
@@ -139,12 +142,18 @@ path = "apps.json"               # resolved against THIS file's directory
 ### Behavior notes
 
 - Versions are sorted newest-first by `(date, version)`; one version entry
-  per matching release asset (a release with several IPAs produces several
-  entries sharing the same version).
+  per matching release asset. A release with several IPAs produces several
+  entries — sharing one version by default, or one version each when
+  `version_source = "filename"`.
+- The version is the release tag by default (`strip_v_prefix` strips a
+  leading `v`). For projects whose tags carry no version (e.g.
+  `youproextra-ipa2`), set `version_pattern` to extract it from the release
+  name or IPA filename instead; on no match the version falls back to the
+  tag-derived value.
 - By default only the newest version is emitted (`max_versions = 1`); set
   `max_versions = 0` (or `--max-versions 0`) to include all versions.
-- News follows the same convention: one news entry per kept version, so
-  versions dropped by `max_versions` contribute no news either. `[news]
+- News follows the same convention: one news entry per release, dropped when
+  `max_versions` caps away all of that release's versions. `[news]
   max_entries` can further cap the list.
 - News entries follow the AltStore spec: `appID` first (the app's
   `bundle_identifier`), a full ISO `date` timestamp, `identifier` derived

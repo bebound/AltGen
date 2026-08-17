@@ -35,6 +35,8 @@ def test_minimal_config_defaults(tmp_path):
     assert config.app.name == "App"
     assert config.versions.strip_v_prefix is True
     assert config.versions.include_prereleases is False
+    assert config.versions.version_pattern is None  # version from tag
+    assert config.versions.version_source == "release"
     assert config.versions.max_versions == 1  # default: latest version only
     assert config.news.enabled is True
     assert config.news.max_entries is None
@@ -292,6 +294,41 @@ def test_regexes_compiled():
     assert config.asset_re.search("app.txt") is None
     match = config.build_re.search("App_ios_2.0.6+4915.ipa")
     assert match and match.group(1) == "4915"
+    assert config.version_re is None  # no version_pattern → tag-derived
+
+
+def test_version_pattern_and_source_loaded(tmp_path):
+    toml = MINIMAL_TOML + """
+[versions]
+version_pattern = "_([0-9]+[.][0-9]+[.][0-9]+)_"
+version_source = "filename"
+"""
+    config = load_config(write_config(tmp_path, toml))
+    assert config.versions.version_pattern == "_([0-9]+[.][0-9]+[.][0-9]+)_"
+    assert config.versions.version_source == "filename"
+    match = config.version_re.search("YouProExtra_21.24.3_1.3.1")
+    assert match and match.group(1) == "21.24.3"
+
+
+def test_version_source_defaults_to_release(tmp_path):
+    toml = MINIMAL_TOML + '\n[versions]\nversion_pattern = "([0-9]+[.][0-9]+)"\n'
+    config = load_config(write_config(tmp_path, toml))
+    assert config.versions.version_pattern == "([0-9]+[.][0-9]+)"
+    assert config.versions.version_source == "release"
+
+
+def test_invalid_version_pattern_regex(tmp_path):
+    toml = MINIMAL_TOML + '\n[versions]\nversion_pattern = "("\n'
+    with pytest.raises(ConfigError, match="invalid regex"):
+        load_config(write_config(tmp_path, toml))
+
+
+def test_invalid_version_source_rejected(tmp_path):
+    toml = MINIMAL_TOML + '\n[versions]\nversion_source = "ipa-name"\n'
+    with pytest.raises(
+        ConfigError, match="version_source must be 'release' or 'filename'"
+    ):
+        load_config(write_config(tmp_path, toml))
 
 
 def test_default_config_cli_defaults():

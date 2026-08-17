@@ -7,7 +7,8 @@ from altgen.source import (
     build_news_entry,
     build_source,
     build_version_entry,
-    extract_build_version,
+    extract_match,
+    resolve_version,
     serialize,
     short_date,
     version_from_tag,
@@ -34,13 +35,41 @@ def test_short_date():
     assert re.match(r"^\d{4}-\d{2}-\d{2}$", short_date(""))  # now() fallback
 
 
-def test_extract_build_version_group_and_whole_match():
+def test_extract_match_group_and_whole_match():
     pattern = re.compile(r"\+(\d+)\.ipa$", re.IGNORECASE)
-    assert extract_build_version("App_ios_2.0.6+4915.ipa", pattern) == "4915"
-    assert extract_build_version("App_ios_2.0.6.ipa", pattern) == ""
-    assert extract_build_version("", pattern) == ""
+    assert extract_match("App_ios_2.0.6+4915.ipa", pattern) == "4915"
+    assert extract_match("App_ios_2.0.6.ipa", pattern) == ""
+    assert extract_match("", pattern) == ""
     whole = re.compile(r"\d+")
-    assert extract_build_version("abc123", whole) == "123"
+    assert extract_match("abc123", whole) == "123"
+
+
+# ---------------------------------------------------------------------------
+# Version resolution
+# ---------------------------------------------------------------------------
+
+def test_resolve_version_defaults_to_tag():
+    cfg = make_config()  # no version_pattern
+    assert resolve_version(cfg, "1.2.3", "Release 1.2.3") == "1.2.3"
+    assert resolve_version(cfg, "1.2.3", "") == "1.2.3"
+
+
+def test_resolve_version_extracts_group_or_whole_match():
+    cfg = make_config(
+        versions=VersionsConfig(version_pattern=r"_(\d+\.\d+\.\d+)(?:_|\.ipa$)")
+    )
+    assert (
+        resolve_version(cfg, "ipa2", "YouProExtra_21.24.3_1.3.1")
+        == "21.24.3"
+    )
+    whole = make_config(versions=VersionsConfig(version_pattern=r"\d+\.\d+\.\d+"))
+    assert resolve_version(whole, "ipa2", "App 1.3.1") == "1.3.1"
+
+
+def test_resolve_version_falls_back_to_tag_on_no_match():
+    cfg = make_config(versions=VersionsConfig(version_pattern=r"v(\d+)"))
+    assert resolve_version(cfg, "1.2.3", "YouProExtra_21.24.3_1.3.1") == "1.2.3"
+    assert resolve_version(cfg, "1.2.3", "") == "1.2.3"
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +392,86 @@ def test_custom_asset_pattern():
     )
     data = build_source(cfg, [release])
     assert len(data["apps"][0]["versions"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Version extraction from release name / asset filename
+# ---------------------------------------------------------------------------
+
+def test_version_extracted_from_release_name():
+    """A tag without a version (e.g. youproextra-ipa2) is replaced by the
+    version in the release name; news identifier still uses the raw tag."""
+    cfg = make_config(
+        versions=VersionsConfig(version_pattern=r"_(\d+\.\d+\.\d+)$")
+    )
+    release = make_release(
+        tag="youproextra-ipa2",
+        name="YouProExtra_21.24.3_1.3.1",
+        assets=[make_asset("YouProExtra_21.24.3_1.3.1.ipa")],
+    )
+    data = build_source(cfg, [release])
+    entry = data["apps"][0]["versions"][0]
+    assert entry["version"] == "1.3.1"
+    news = data["news"][0]
+    assert news["identifier"] == "release-youproextra-ipa2"
+    assert news["title"] == "App 1.3.1 - 01 Jan 2024"
+
+
+def test_version_extracted_from_filename_per_asset():
+    """version_source = \"filename\": each asset carries its own version."""
+    cfg = make_config(
+        versions=VersionsConfig(
+            max_versions=None,
+            version_pattern=r"_(\d+\.\d+\.\d+)\+",
+            version_source="filename",
+        )
+    )
+    release = make_release(
+        tag="v1.0.0",
+        assets=[
+            make_ipa_asset(version="2.5.0", build="1"),
+            make_ipa_asset(version="2.4.0", build="2"),
+        ],
+    )
+    data = build_source(cfg, [release])
+    versions = data["apps"][0]["versions"]
+    assert [v["version"] for v in versions] == ["2.5.0", "2.4.0"]
+
+
+def test_filename_versions_news_follows_max_versions():
+    """News is kept when any of a release's per-asset versions survives the
+    max_versions cap; a release whose versions are all capped is dropped."""
+    cfg = make_config(
+        versions=VersionsConfig(
+            max_versions=2,
+            version_pattern=r"_(\d+\.\d+\.\d+)\+",
+            version_source="filename",
+        )
+    )
+    releases = [
+        make_release(
+            tag="v1.0.0",
+            published="2024-01-01T00:00:00Z",
+            assets=[make_ipa_asset(version="1.0.0", build="1")],
+        ),
+        make_release(
+            tag="v2.0.0",
+            published="2024-02-01T00:00:00Z",
+            assets=[
+                make_ipa_asset(version="2.5.0", build="1"),
+                make_ipa_asset(version="2.4.0", build="2"),
+            ],
+        ),
+    ]
+    data = build_source(cfg, releases)
+    assert [v["version"] for v in data["apps"][0]["versions"]] == [
+        "2.5.0",
+        "2.4.0",
+    ]
+    # News title uses the extracted version, and only the kept release's
+    # news survives.
+    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
+    assert data["news"][0]["title"] == "App 2.5.0 - 01 Feb 2024"
 
 
 # ---------------------------------------------------------------------------

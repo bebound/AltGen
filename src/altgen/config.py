@@ -69,6 +69,13 @@ class VersionsConfig:
     include_prereleases: bool = False
     asset_pattern: str = DEFAULT_ASSET_PATTERN
     build_version_pattern: str = DEFAULT_BUILD_VERSION_PATTERN
+    # When set, the app version is extracted with this regex instead of
+    # being taken from the release tag (which has no version for some
+    # projects). Falls back to the tag-derived version on no match.
+    version_pattern: str | None = None
+    # Where version_pattern runs: the release "name" (default) or the IPA
+    # asset filename.
+    version_source: str = "release"
     max_versions: int | None = 1  # default: latest version only; None = all
 
 
@@ -106,6 +113,7 @@ class AltgenConfig:
     config_dir: Path
     asset_re: re.Pattern = field(init=False)  # matches IPA asset names (IGNORECASE)
     build_re: re.Pattern = field(init=False)  # extracts buildVersion from filename
+    version_re: re.Pattern | None = field(init=False)  # extracts version; None = tag-derived
 
     def __post_init__(self) -> None:
         # Validates regardless of how the config was built (TOML or CLI),
@@ -113,6 +121,11 @@ class AltgenConfig:
         if not _REPO_RE.match(self.github.repo):
             raise ConfigError(
                 f"github repo must be 'owner/name', got {self.github.repo!r}"
+            )
+        if self.versions.version_source not in ("release", "filename"):
+            raise ConfigError(
+                f"[versions] version_source must be 'release' or 'filename', "
+                f"got {self.versions.version_source!r}"
             )
         for section, tint in (
             ("source", self.source.tint_color),
@@ -123,10 +136,16 @@ class AltgenConfig:
         try:
             asset_re = re.compile(self.versions.asset_pattern, re.IGNORECASE)
             build_re = re.compile(self.versions.build_version_pattern)
+            version_re = (
+                re.compile(self.versions.version_pattern)
+                if self.versions.version_pattern is not None
+                else None
+            )
         except re.error as exc:
             raise ConfigError(f"invalid regex: {exc}") from exc
         object.__setattr__(self, "asset_re", asset_re)
         object.__setattr__(self, "build_re", build_re)
+        object.__setattr__(self, "version_re", version_re)
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +171,8 @@ _TABLES: dict[str, set[str]] = {
         "include_prereleases",
         "asset_pattern",
         "build_version_pattern",
+        "version_pattern",
+        "version_source",
         "max_versions",
     },
     "news": {
@@ -338,6 +359,9 @@ def load_config(path: Path) -> AltgenConfig:
             ver_table, "build_version_pattern", "versions"
         )
         or DEFAULT_BUILD_VERSION_PATTERN,
+        version_pattern=_get_str(ver_table, "version_pattern", "versions"),
+        version_source=_get_str(ver_table, "version_source", "versions")
+        or "release",
         max_versions=_get_cap(
             ver_table, "max_versions", "versions", default=1
         ),
