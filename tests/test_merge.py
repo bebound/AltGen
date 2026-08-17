@@ -74,6 +74,13 @@ def test_merge_apps_sorted_by_name():
     assert [a["name"] for a in data["apps"]] == ["Alpha", "Mid", "Zeta"]
 
 
+def test_merge_apps_sorted_case_insensitive():
+    doc1 = make_doc(apps=[make_app(bundle_id="com.it", name="iTorrent")])
+    doc2 = make_doc(apps=[make_app(bundle_id="com.utm", name="UTM")])
+    data = merge_sources([("i.json", doc1), ("u.json", doc2)], SOURCE)
+    assert [a["name"] for a in data["apps"]] == ["iTorrent", "UTM"]
+
+
 def test_merge_root_optionals():
     src = SourceConfig(
         name="M",
