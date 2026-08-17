@@ -53,8 +53,7 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
    - source root: `name, subtitle, description, iconURL, website,
      tintColor, apps, news`
    - app: `name, bundleIdentifier, developerName, subtitle,
-     localizedDescription, iconURL, screenshots, tintColor, versions,
-     news`
+     localizedDescription, iconURL, screenshots, tintColor, versions`
    - version entry: `version, buildVersion, date, localizedDescription,
      downloadURL, size, minOSVersion`
    - news entry: `appID, title, identifier, caption, date, tintColor,

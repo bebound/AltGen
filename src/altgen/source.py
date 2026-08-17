@@ -153,7 +153,6 @@ def build_source(
     if cfg.app.tint_color is not None:
         app_entry["tintColor"] = cfg.app.tint_color
     app_entry["versions"] = []
-    app_entry["news"] = []
     data["apps"].append(app_entry)
 
     def log_skip(reason: str) -> None:

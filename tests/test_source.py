@@ -145,7 +145,6 @@ def test_source_skeleton_key_order_and_optionals():
         "screenshots",
         "tintColor",
         "versions",
-        "news",
     ]
 
 
