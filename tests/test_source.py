@@ -474,6 +474,51 @@ def test_filename_versions_news_follows_max_versions():
     assert data["news"][0]["title"] == "App 2.5.0 - 01 Feb 2024"
 
 
+def test_duplicate_versions_news_follows_max_versions():
+    """Releases resolving to the same version string are matched by
+    release, not by version string: with max_versions=1 only the newest
+    release keeps its news, so news count matches versions count."""
+    releases = [
+        make_release(
+            tag="release-v1.2.3-2026-08-07",
+            published="2026-08-07T03:44:22Z",
+        ),
+        make_release(
+            tag="release-v1.2.3-2026-08-14",
+            published="2026-08-14T01:56:21Z",
+        ),
+        make_release(
+            tag="release-v1.2.3-2026-08-21",
+            published="2026-08-21T01:18:29Z",
+        ),
+    ]
+    # Default max_versions=1: only the newest release keeps both version
+    # and news.
+    capped = build_source(
+        make_config(versions=VersionsConfig(version_pattern=r"(\d+\.\d+\.\d+)")),
+        releases,
+    )
+    assert [v["version"] for v in capped["apps"][0]["versions"]] == ["1.2.3"]
+    assert [n["identifier"] for n in capped["news"]] == [
+        "release-release-v1.2.3-2026-08-21",
+    ]
+    # No cap: one version + one news per release, counts stay equal.
+    uncapped = build_source(
+        make_config(
+            versions=VersionsConfig(
+                version_pattern=r"(\d+\.\d+\.\d+)", max_versions=None
+            )
+        ),
+        releases,
+    )
+    assert len(uncapped["apps"][0]["versions"]) == 3
+    assert [n["identifier"] for n in uncapped["news"]] == [
+        "release-release-v1.2.3-2026-08-21",
+        "release-release-v1.2.3-2026-08-14",
+        "release-release-v1.2.3-2026-08-07",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Serialization
 # ---------------------------------------------------------------------------

@@ -78,10 +78,13 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
    - `max_versions` defaults to `1` (newest version only); `0` means all
      versions; the internal "unlimited" sentinel is `None` (see
      `_get_cap`).
-   - News follows `max_versions`: one news entry per release, dropped when
-     the cap removes all of that release's versions (`news_versions` tracks
-     every asset version so a multi-IPA release's news survives if any of
-     its versions is kept). `news.max_entries` caps further.
+   - News follows `max_versions`: one news entry per release, kept only
+     when that release still has a version entry after the cap (a multi-IPA
+     release's news survives if any of its asset versions is kept). Matching
+     is by release, not by version string, so when several releases resolve
+     to the same version (e.g. tag dates differ but the version doesn't),
+     the capped-away releases lose their news too and news count tracks the
+     kept releases. `news.max_entries` caps further.
    - News `identifier` = `release-<tag>` (raw release tag, not the
      v-stripped version); news `date` is a full ISO timestamp, while
      version-entry dates are `YYYY-MM-DD` (short date).

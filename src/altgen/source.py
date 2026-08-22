@@ -176,8 +176,10 @@ def build_source(
             log(reason)
 
     news: list[dict] = []
-    news_versions: list[list[str]] = []
-    for release in releases:
+    news_release_idx: list[int] = []  # parallel to news: the source release
+    versions: list[dict] = []
+    version_release_idx: list[int] = []  # parallel to versions: the source release
+    for rel_idx, release in enumerate(releases):
         tag = release.get("tag_name") or ""
         if release.get("draft"):
             log_skip(f"skip {tag or '<no tag>'}: draft")
@@ -212,32 +214,42 @@ def build_source(
             )
             version = resolve_version(cfg, tag_version, source_value)
             release_versions.append(version)
-            app_entry["versions"].append(
-                build_version_entry(cfg, release, asset, version)
-            )
+            versions.append(build_version_entry(cfg, release, asset, version))
+            version_release_idx.append(rel_idx)
 
         if cfg.news.enabled:
             news.append(
                 build_news_entry(cfg, release, release_versions[0], tag)
             )
-            # Track every asset version so the cap filter below can match
-            # this release's news when any of its versions is kept.
-            news_versions.append(release_versions)
+            news_release_idx.append(rel_idx)
 
-    app_entry["versions"] = sorted(
-        app_entry["versions"],
-        key=lambda v: (v.get("date", ""), v.get("version", "")),
+    # Sort versions by (date, version) desc, keeping their source release
+    # aligned.
+    pairs = sorted(
+        zip(versions, version_release_idx),
+        key=lambda p: (p[0].get("date", ""), p[0].get("version", "")),
         reverse=True,
     )
+    versions = [p[0] for p in pairs]
+    version_release_idx = [p[1] for p in pairs]
+
     if cfg.versions.max_versions is not None:
-        app_entry["versions"] = app_entry["versions"][: cfg.versions.max_versions]
+        versions = versions[: cfg.versions.max_versions]
+        version_release_idx = version_release_idx[: cfg.versions.max_versions]
         # News follows the same convention as versions: one entry per
-        # release, so drop news for releases whose versions were all
-        # capped away.
-        kept = {v["version"] for v in app_entry["versions"]}
+        # release, so drop news for releases whose version entries were
+        # all capped away. Matching is by release, not by version string,
+        # so when several releases resolve to the same version (e.g. the
+        # tag date differs but the version doesn't), only the releases
+        # that actually kept a version entry keep their news — news count
+        # then tracks the kept releases.
+        kept_releases = set(version_release_idx)
         news = [
-            n for n, vs in zip(news, news_versions) if any(v in kept for v in vs)
+            n
+            for n, rel_idx in zip(news, news_release_idx)
+            if rel_idx in kept_releases
         ]
+    app_entry["versions"] = versions
 
     news.sort(key=lambda n: n.get("date", ""), reverse=True)
     if cfg.news.max_entries is not None:

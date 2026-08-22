@@ -133,7 +133,7 @@ title_template = "{name} {version} - {date}"  # default; placeholders: {name} {v
 caption_template = ""                     # optional; default: "{name} {version} is available."
 image_url = ""                            # optional; omitted from JSON when unset
                                           # news appID = [app] bundle_identifier
-max_entries = 0                           # 0 = unlimited; caps after sorting; news already limited to versions kept by max_versions
+max_entries = 0                           # 0 = unlimited; caps after sorting; news already limited to releases kept by max_versions
 
 [output]
 path = "apps.json"               # resolved against THIS file's directory
@@ -152,8 +152,12 @@ path = "apps.json"               # resolved against THIS file's directory
   tag-derived value.
 - By default only the newest version is emitted (`max_versions = 1`); set
   `max_versions = 0` (or `--max-versions 0`) to include all versions.
-- News follows the same convention: one news entry per release, dropped when
-  `max_versions` caps away all of that release's versions. `[news]
+- News follows the same convention: one news entry per release, kept only
+  when that release still has a version entry after the `max_versions` cap.
+  Matching is by release, not by version string, so several releases that
+  resolve to the same version (e.g. a date-bearing tag like
+  `release-v1.2.3-2026-08-21` vs `...-2026-08-14`) each get their own news
+  entry only while their version entry survives the cap. `[news]
   max_entries` can further cap the list.
 - News entries follow the AltStore spec: `appID` first (the app's
   `bundle_identifier`), a full ISO `date` timestamp, `identifier` derived
