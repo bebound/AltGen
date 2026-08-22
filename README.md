@@ -5,9 +5,9 @@
 # AltGen
 
 <p align="center">
-  <img alt="Python versions" src="https://img.shields.io/pypi/pyversions/altgen.svg?color=00AEEF">
-  <img alt="PyPI version" src="https://img.shields.io/pypi/v/altgen.svg?color=00AEEF">
-  <img alt="MIT license" src="https://img.shields.io/pypi/l/altgen.svg?color=00AEEF">
+  <a href="https://pypi.org/project/altgen/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/altgen.svg?color=00AEEF"></a>
+  <a href="https://pypi.org/project/altgen/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/altgen.svg?color=00AEEF"></a>
+  <a href="https://github.com/bebound/altgen/blob/master/LICENSE"><img alt="MIT license" src="https://img.shields.io/pypi/l/altgen.svg?color=00AEEF"></a>
 </p>
 
 Generate [AltStore](https://faq.altstore.io/developers/make-a-source)
