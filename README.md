@@ -161,7 +161,8 @@ path = "apps.json"               # resolved against THIS file's directory
   max_entries` can further cap the list.
 - News entries follow the AltStore spec: `appID` first (the app's
   `bundle_identifier`), a full ISO `date` timestamp, `identifier` derived
-  from the release tag (`release-<tag>`), and an optional `imageURL`;
+  from the app name and release tag (`<app-name>-release-<tag>`), and an
+  optional `imageURL`;
   `title_template` / `caption_template` support `{name}`, `{version}`,
   `{tag}`, `{date}` placeholders.
 - A release with no matching asset contributes nothing — not even a news

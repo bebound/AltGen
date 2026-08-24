@@ -291,7 +291,7 @@ def test_default_keeps_only_latest_version(tmp_path, run):
     assert code == 0, err
     data = json.loads((tmp_path / "apps.json").read_text())
     assert [v["version"] for v in data["apps"][0]["versions"]] == ["2.0.0"]
-    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["App-release-v2.0.0"]
 
 
 def test_max_versions_zero_means_all(tmp_path, run):

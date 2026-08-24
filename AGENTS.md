@@ -85,9 +85,10 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
      to the same version (e.g. tag dates differ but the version doesn't),
      the capped-away releases lose their news too and news count tracks the
      kept releases. `news.max_entries` caps further.
-   - News `identifier` = `release-<tag>` (raw release tag, not the
-     v-stripped version); news `date` is a full ISO timestamp, while
-     version-entry dates are `YYYY-MM-DD` (short date).
+   - News `identifier` = `<app-name>-release-<tag>` (the app `name` plus
+     the raw release tag, not the v-stripped version); news `date` is a
+     full ISO timestamp, while version-entry dates are `YYYY-MM-DD` (short
+     date).
    - News `appID` always comes from `[app] bundle_identifier`; it is not
      separately configurable.
    - `title_template` / `caption_template` support `{name}`, `{version}`,

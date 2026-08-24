@@ -205,7 +205,7 @@ def test_drafts_and_prereleases_skipped():
     ]
     data = build_source(cfg, releases)
     assert [v["version"] for v in data["apps"][0]["versions"]] == ["1.0.0"]
-    assert [n["identifier"] for n in data["news"]] == ["release-v1.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["App-release-v1.0.0"]
 
 
 def test_prereleases_included_when_configured():
@@ -273,8 +273,8 @@ def test_news_sorted_by_date_desc():
     ]
     data = build_source(cfg, releases)
     assert [n["identifier"] for n in data["news"]] == [
-        "release-v2.0.0",
-        "release-v1.0.0",
+        "App-release-v2.0.0",
+        "App-release-v1.0.0",
     ]
 
 
@@ -288,7 +288,7 @@ def test_default_keeps_only_latest_version():
     ]
     data = build_source(cfg, releases)
     assert [v["version"] for v in data["apps"][0]["versions"]] == ["2.0.0"]
-    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["App-release-v2.0.0"]
 
 
 def test_max_versions_caps_after_sort():
@@ -311,7 +311,7 @@ def test_news_max_entries_caps_after_sort():
         make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
     ]
     data = build_source(cfg, releases)
-    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["App-release-v2.0.0"]
 
 
 def test_news_disabled():
@@ -349,8 +349,9 @@ def test_news_entry_fields_and_template():
     ]
     assert entry["appID"] == "com.x.y"
     assert entry["title"] == "MyApp — 1.0.0!"
-    # identifier is derived from the raw tag, date is a full ISO timestamp
-    assert entry["identifier"] == "release-v1.0.0"
+    # identifier prefixes the raw tag with the app name; date is a full
+    # ISO timestamp
+    assert entry["identifier"] == "MyApp-release-v1.0.0"
     assert entry["date"] == "2024-01-01T00:00:00Z"
     assert entry["caption"] == "New MyApp update available!"
     assert entry["imageURL"] == "https://e.com/news.png"
@@ -400,7 +401,8 @@ def test_custom_asset_pattern():
 
 def test_version_extracted_from_release_name():
     """A tag without a version (e.g. youproextra-ipa2) is replaced by the
-    version in the release name; news identifier still uses the raw tag."""
+    version in the release name; news identifier uses the raw tag (with the
+    app name as a prefix)."""
     cfg = make_config(
         versions=VersionsConfig(version_pattern=r"_(\d+\.\d+\.\d+)$")
     )
@@ -413,7 +415,7 @@ def test_version_extracted_from_release_name():
     entry = data["apps"][0]["versions"][0]
     assert entry["version"] == "1.3.1"
     news = data["news"][0]
-    assert news["identifier"] == "release-youproextra-ipa2"
+    assert news["identifier"] == "App-release-youproextra-ipa2"
     assert news["title"] == "App 1.3.1 - 01 Jan 2024"
 
 
@@ -470,7 +472,7 @@ def test_filename_versions_news_follows_max_versions():
     ]
     # News title uses the extracted version, and only the kept release's
     # news survives.
-    assert [n["identifier"] for n in data["news"]] == ["release-v2.0.0"]
+    assert [n["identifier"] for n in data["news"]] == ["App-release-v2.0.0"]
     assert data["news"][0]["title"] == "App 2.5.0 - 01 Feb 2024"
 
 
@@ -500,7 +502,7 @@ def test_duplicate_versions_news_follows_max_versions():
     )
     assert [v["version"] for v in capped["apps"][0]["versions"]] == ["1.2.3"]
     assert [n["identifier"] for n in capped["news"]] == [
-        "release-release-v1.2.3-2026-08-21",
+        "App-release-release-v1.2.3-2026-08-21",
     ]
     # No cap: one version + one news per release, counts stay equal.
     uncapped = build_source(
@@ -513,9 +515,9 @@ def test_duplicate_versions_news_follows_max_versions():
     )
     assert len(uncapped["apps"][0]["versions"]) == 3
     assert [n["identifier"] for n in uncapped["news"]] == [
-        "release-release-v1.2.3-2026-08-21",
-        "release-release-v1.2.3-2026-08-14",
-        "release-release-v1.2.3-2026-08-07",
+        "App-release-release-v1.2.3-2026-08-21",
+        "App-release-release-v1.2.3-2026-08-14",
+        "App-release-release-v1.2.3-2026-08-07",
     ]
 
 

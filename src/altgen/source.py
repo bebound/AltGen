@@ -103,9 +103,10 @@ def build_news_entry(
 
     Key order follows the AltStore news spec. ``appID`` is the app's
     ``bundle_identifier``. The date is a full ISO timestamp, and the
-    identifier is derived from the release tag (``release-<tag>``). Title
-    and caption templates may use ``{name}``, ``{version}``, ``{tag}``,
-    and ``{date}`` (humanized, e.g. 07 Aug 2026) placeholders.
+    identifier is derived from the app name and release tag
+    (``<app-name>-release-<tag>``). Title and caption templates may use
+    ``{name}``, ``{version}``, ``{tag}``, and ``{date}`` (humanized, e.g.
+    07 Aug 2026) placeholders.
     """
     published = release.get("published_at", "")
     fmt = {
@@ -119,7 +120,7 @@ def build_news_entry(
     entry: dict = {
         "appID": cfg.app.bundle_identifier,
         "title": title,
-        "identifier": f"release-{tag}",
+        "identifier": f"{cfg.app.name}-release-{tag}",
         "caption": caption,
         "date": iso_datetime(published),
     }
