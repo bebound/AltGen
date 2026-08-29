@@ -95,6 +95,24 @@ def test_pure_cli_mode_writes_valid_json(tmp_path, run):
     assert f"Wrote {out_path}" in out
 
 
+def test_success_message_includes_latest_version(tmp_path, run):
+    code, out, err, _ = run(
+        [
+            "--repo", "owner/App",
+            "--app-name", "App",
+            "--bundle-id", "com.owner.app",
+            "-o", str(tmp_path / "apps.json"),
+        ],
+        releases=[
+            make_release(tag="v1.0.0", published="2024-01-01T00:00:00Z"),
+            make_release(tag="v2.0.0", published="2024-02-01T00:00:00Z"),
+        ],
+    )
+    assert code == 0, err
+    assert f"Wrote {tmp_path / 'apps.json'}" in out
+    assert "latest 2.0.0" in out
+
+
 def test_cli_flag_overrides_toml(tmp_path, run):
     config = write_config(tmp_path, MINIMAL_TOML)
     code, out, err, _ = run(

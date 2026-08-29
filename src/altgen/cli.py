@@ -202,7 +202,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"altgen: cannot write {config.output.path}: {exc}", file=sys.stderr)
         return RUNTIME_ERROR
 
-    n_versions = len(data["apps"][0]["versions"])
+    versions = data["apps"][0]["versions"]
+    n_versions = len(versions)
     n_news = len(data["news"])
     if not n_versions:
         print(
@@ -210,8 +211,11 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
     if not args.quiet:
+        latest = versions[0]["version"] if n_versions else None
+        latest_part = f", latest {latest}" if latest else ""
         print(
-            f"Wrote {config.output.path} ({n_versions} versions, {n_news} news)"
+            f"Wrote {config.output.path} ({n_versions} versions{latest_part}, "
+            f"{n_news} news)"
         )
     return OK
 
