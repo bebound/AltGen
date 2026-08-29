@@ -78,6 +78,11 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
    - `max_versions` defaults to `1` (newest version only); `0` means all
      versions; the internal "unlimited" sentinel is `None` (see
      `_get_cap`).
+   - Versions sort by published date first, then **numerically** by version
+     (dot-separated segments compared as integers, so `0.3.12` ranks above
+     `0.3.9`); non-numeric segments fall back to string ordering. This
+     keeps same-day release bumps (`0.3.9` → `0.3.12` on one date) ordered
+     correctly.
    - News follows `max_versions`: one news entry per release, kept only
      when that release still has a version entry after the cap (a multi-IPA
      release's news survives if any of its asset versions is kept). Matching

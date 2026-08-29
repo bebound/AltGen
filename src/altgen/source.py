@@ -76,6 +76,28 @@ def resolve_version(
     return tag_version
 
 
+def _version_part(part: str) -> tuple[int, int | str]:
+    """One dot-separated segment of a version as a sortable component.
+
+    Numeric segments become ``(0, int)``, everything else ``(1, str)``; the
+    type tag keeps every component comparable with its peers (a numeric and
+    a textual segment at the same position never reach a mixed int/str
+    comparison).
+    """
+    return (0, int(part)) if part.isdigit() else (1, part)
+
+
+def version_sort_key(version: str) -> tuple[tuple[int, int | str], ...]:
+    """Numeric-aware sort key for a version string.
+
+    Each dot-separated segment is compared as an integer when numeric, so
+    ``"0.3.12"`` sorts after ``"0.3.9"`` — unlike plain string comparison,
+    where ``"0.3.9" > "0.3.12"``. Non-numeric segments (e.g. ``"fix"``)
+    fall back to string ordering.
+    """
+    return tuple(_version_part(p) for p in version.split("."))
+
+
 def build_version_entry(
     cfg: AltgenConfig, release: dict, asset: dict, version: str
 ) -> dict:
@@ -225,10 +247,14 @@ def build_source(
             news_release_idx.append(rel_idx)
 
     # Sort versions by (date, version) desc, keeping their source release
-    # aligned.
+    # aligned. Versions compare numerically (0.3.12 > 0.3.9), so releases
+    # published the same day still rank in the right order.
     pairs = sorted(
         zip(versions, version_release_idx),
-        key=lambda p: (p[0].get("date", ""), p[0].get("version", "")),
+        key=lambda p: (
+            p[0].get("date", ""),
+            version_sort_key(p[0].get("version", "")),
+        ),
         reverse=True,
     )
     versions = [p[0] for p in pairs]

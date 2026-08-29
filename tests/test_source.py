@@ -12,6 +12,7 @@ from altgen.source import (
     serialize,
     short_date,
     version_from_tag,
+    version_sort_key,
 )
 
 from conftest import make_asset, make_config, make_ipa_asset, make_release
@@ -263,6 +264,46 @@ def test_versions_sorted_by_date_then_version_desc():
         "2.9.0",
         "2.10.0",
     ]
+
+
+def test_version_sort_key_compares_segments_numerically():
+    assert version_sort_key("0.3.12") > version_sort_key("0.3.9")
+    assert version_sort_key("2.10.0") > version_sort_key("2.9.0")
+    assert version_sort_key("2.0.9.1") > version_sort_key("2.0.9")
+    # Non-numeric segments order after numeric ones, deterministically and
+    # without a mixed int/str comparison crash.
+    assert version_sort_key("1.0.0-beta") > version_sort_key("1.0.0")
+
+
+def test_same_day_releases_rank_newest_by_version():
+    """Releases published the same day (kumone-style multi-release day) must
+    pick the numerically newest version, not a lexicographically larger
+    string like ``0.3.9`` over ``0.3.12``."""
+    cfg = make_config(versions=VersionsConfig(max_versions=None))
+    releases = [
+        make_release(tag="v0.3.9", published="2026-08-27T08:32:20Z"),
+        make_release(tag="v0.3.10", published="2026-08-27T08:58:40Z"),
+        make_release(tag="v0.3.11", published="2026-08-27T09:38:19Z"),
+        make_release(tag="v0.3.12", published="2026-08-27T10:28:37Z"),
+    ]
+    data = build_source(cfg, releases)
+    assert [v["version"] for v in data["apps"][0]["versions"]] == [
+        "0.3.12",
+        "0.3.11",
+        "0.3.10",
+        "0.3.9",
+    ]
+
+
+def test_same_day_versions_default_keeps_numerically_newest():
+    cfg = make_config()  # max_versions defaults to 1
+    releases = [
+        make_release(tag="v0.3.9", published="2026-08-27T08:32:20Z"),
+        make_release(tag="v0.3.12", published="2026-08-27T10:28:37Z"),
+    ]
+    data = build_source(cfg, releases)
+    assert [v["version"] for v in data["apps"][0]["versions"]] == ["0.3.12"]
+    assert [n["identifier"] for n in data["news"]] == ["App-release-v0.3.12"]
 
 
 def test_news_sorted_by_date_desc():
