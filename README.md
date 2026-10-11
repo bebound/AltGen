@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.png" alt="AltGen icon" width="128">
+  <img src="https://raw.githubusercontent.com/bebound/AltGen/refs/heads/master/assets/icon.png" alt="AltGen icon" width="128">
 </p>
 
 # AltGen
