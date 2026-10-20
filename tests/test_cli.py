@@ -9,7 +9,7 @@ from altgen import __version__
 from altgen.cli import main
 from altgen.github import GithubError
 
-from conftest import make_release, write_config
+from conftest import make_asset, make_release, write_config
 
 MINIMAL_TOML = """
 [github]
@@ -348,3 +348,187 @@ def test_invalid_tint_via_cli_exits_2(capsys):
         == 2
     )
     assert "#RRGGBB" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# version_source = "ipa"
+# ---------------------------------------------------------------------------
+
+IPA_CONFIG = """
+[github]
+repo = "owner/App"
+
+[app]
+name = "App"
+bundle_identifier = "com.owner.app"
+
+[versions]
+version_source = "ipa"
+include_prereleases = true
+max_versions = 2
+"""
+
+
+def _ipa_config(tmp_path, extra=""):
+    return write_config(tmp_path, IPA_CONFIG + extra)
+
+
+def test_version_source_ipa_reads_version_from_asset(
+    tmp_path, run, monkeypatch
+):
+    config = _ipa_config(tmp_path)
+    fetched = []
+
+    def fake_ipa_version(url, token=None):
+        fetched.append(url)
+        return "3.8.11" if "nightly" in url else "3.8.0"
+
+    monkeypatch.setattr("altgen.cli.fetch_ipa_version", fake_ipa_version)
+    releases = [
+        make_release(
+            tag="v3.8.0",
+            published="2024-02-01T00:00:00Z",
+            assets=[
+                make_asset("App.ipa", url="https://example.com/stable.ipa")
+            ],
+        ),
+        make_release(
+            tag="nightly",
+            published="2024-03-01T00:00:00Z",
+            prerelease=True,
+            assets=[
+                make_asset("App.ipa", url="https://example.com/nightly.ipa")
+            ],
+        ),
+    ]
+    code, out, err, _ = run(["-c", str(config)], releases=releases)
+    assert code == 0, err
+    data = json.loads((tmp_path / "apps.json").read_text())
+    assert [v["version"] for v in data["apps"][0]["versions"]] == [
+        "3.8.11",
+        "3.8.0",
+    ]
+    # News keeps the raw tag, so the nightly release still gets a stable id.
+    assert [n["identifier"] for n in data["news"]] == [
+        "App-release-nightly",
+        "App-release-v3.8.0",
+    ]
+    assert sorted(fetched) == [
+        "https://example.com/nightly.ipa",
+        "https://example.com/stable.ipa",
+    ]
+
+
+def test_version_source_ipa_only_downloads_capped_releases(
+    tmp_path, run, monkeypatch
+):
+    config = write_config(
+        tmp_path,
+        """
+[github]
+repo = "owner/App"
+
+[app]
+name = "App"
+bundle_identifier = "com.owner.app"
+
+[versions]
+version_source = "ipa"
+max_versions = 1
+""",
+    )
+    fetched = []
+
+    def fake_ipa_version(url, token=None):
+        fetched.append(url)
+        return "1.0.0"
+
+    monkeypatch.setattr("altgen.cli.fetch_ipa_version", fake_ipa_version)
+    releases = [
+        make_release(
+            tag="v1.0.0",
+            published="2024-01-01T00:00:00Z",
+            assets=[make_asset("App.ipa", url="https://example.com/old.ipa")],
+        ),
+        make_release(
+            tag="v2.0.0",
+            published="2024-02-01T00:00:00Z",
+            assets=[make_asset("App.ipa", url="https://example.com/new.ipa")],
+        ),
+    ]
+    code, _out, err, _ = run(["-c", str(config)], releases=releases)
+    assert code == 0, err
+    assert fetched == ["https://example.com/new.ipa"]
+
+
+def test_version_source_ipa_downloads_same_day_releases(
+    tmp_path, run, monkeypatch
+):
+    """Same-day releases are ordered by (unknown) version, so both must be
+    fetched even when the cap is 1."""
+    config = write_config(
+        tmp_path,
+        """
+[github]
+repo = "owner/App"
+
+[app]
+name = "App"
+bundle_identifier = "com.owner.app"
+
+[versions]
+version_source = "ipa"
+max_versions = 1
+""",
+    )
+    fetched = []
+
+    def fake_ipa_version(url, token=None):
+        fetched.append(url)
+        return "2.0.0" if "b" in url else "1.0.0"
+
+    monkeypatch.setattr("altgen.cli.fetch_ipa_version", fake_ipa_version)
+    releases = [
+        make_release(
+            tag="v1.0.0",
+            published="2024-02-01T00:00:00Z",
+            assets=[make_asset("App.ipa", url="https://example.com/a.ipa")],
+        ),
+        make_release(
+            tag="v2.0.0",
+            published="2024-02-01T00:00:00Z",
+            assets=[make_asset("App.ipa", url="https://example.com/b.ipa")],
+        ),
+    ]
+    code, _out, err, _ = run(["-c", str(config)], releases=releases)
+    assert code == 0, err
+    assert sorted(fetched) == [
+        "https://example.com/a.ipa",
+        "https://example.com/b.ipa",
+    ]
+    data = json.loads((tmp_path / "apps.json").read_text())
+    assert [v["version"] for v in data["apps"][0]["versions"]] == ["2.0.0"]
+
+
+def test_version_source_ipa_warns_and_falls_back_on_failure(
+    tmp_path, run, monkeypatch
+):
+    config = _ipa_config(tmp_path)
+
+    def fake_ipa_version(url, token=None):
+        raise GithubError("boom")
+
+    monkeypatch.setattr("altgen.cli.fetch_ipa_version", fake_ipa_version)
+    code, _out, err, _ = run(
+        ["-c", str(config)],
+        releases=[
+            make_release(
+                tag="nightly",
+                assets=[make_asset("App.ipa", url="https://example.com/v.ipa")],
+            )
+        ],
+    )
+    assert code == 0
+    assert "falling back to the release tag" in err
+    data = json.loads((tmp_path / "apps.json").read_text())
+    assert data["apps"][0]["versions"][0]["version"] == "nightly"

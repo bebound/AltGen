@@ -31,8 +31,12 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
   `[source]` + `[output]` tables), `apply_cli_overrides` (CLI flag > TOML).
 - `src/altgen/source.py` — pure functions building the source document
   from a config + release dicts. No network, no IO.
-- `src/altgen/github.py` — GitHub Releases API client (`fetch_releases`);
-  the only network caller, patched in tests.
+- `src/altgen/github.py` — GitHub Releases API client (`fetch_releases`)
+  and IPA asset downloader (`fetch_ipa_version`); the only network
+  caller, patched in tests.
+- `src/altgen/ipa.py` — reads `CFBundleShortVersionString` /
+  `CFBundleVersion` from an IPA's main app `Info.plist` in memory (no
+  extraction); used by `version_source = "ipa"`.
 - `src/altgen/merge.py` — merges parsed apps.json documents
   (`merge_sources`); rejects duplicate bundle identifiers and news
   identifiers.
@@ -75,6 +79,15 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
      (`version_source = "filename"`) instead; on no match it falls back to
      the tag-derived value. A release with several IPAs yields one version
      each under `version_source = "filename"`.
+   - `version_source = "ipa"` handles rolling tags (`nightly`, …): the
+     CLI downloads each candidate matching asset, reads
+     `CFBundleShortVersionString` (then `CFBundleVersion`) from the main
+     app's `Info.plist`, and stores it on the asset under
+     `IPA_VERSION_KEY`; `build_source` stays pure and uses that value,
+     falling back to the tag. `version_pattern` is ignored in this mode.
+     Downloads are limited to releases that can survive `max_versions`
+     (including same-day releases, whose order depends on the version);
+     failures warn and fall back to the tag.
    - `max_versions` defaults to `1` (newest version only); `0` means all
      versions; the internal "unlimited" sentinel is `None` (see
      `_get_cap`).
@@ -104,9 +117,11 @@ Requires Python >= 3.10. The virtualenv is `.venv/`.
    against the cwd; `[output] path` resolves against the config file's
    directory. The build and merge modes share flag dests via
    `_add_common_flags` in `cli.py`.
-7. **Strict input validation in merge.** Every input app must have a
-   non-empty `bundleIdentifier`, every news entry a non-empty
-   `identifier`; duplicates across inputs raise `MergeError` (exit 2).
+7. **Merge input validation.** Every input app must have a non-empty
+   `bundleIdentifier`, every news entry a non-empty `identifier`. Inputs
+   are merged verbatim — duplicate bundle identifiers and duplicate news
+   identifiers are allowed, and both entries are kept (no config option,
+   no error).
 
 ## When changing behavior
 

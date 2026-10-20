@@ -13,12 +13,14 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
 from altgen import __version__
 from altgen.config import (
     _TINT_RE,
+    AltgenConfig,
     ConfigError,
     OutputConfig,
     SourceConfig,
@@ -27,9 +29,15 @@ from altgen.config import (
     load_config,
     load_merge_config,
 )
-from altgen.github import GithubError, fetch_releases
+from altgen.github import GithubError, fetch_ipa_version, fetch_releases
 from altgen.merge import MergeError, merge_sources
-from altgen.source import build_source, serialize
+from altgen.source import (
+    IPA_VERSION_KEY,
+    build_source,
+    serialize,
+    short_date,
+    version_from_tag,
+)
 
 USAGE_ERROR = 2
 RUNTIME_ERROR = 1
@@ -188,6 +196,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"altgen: {exc}", file=sys.stderr)
         return RUNTIME_ERROR
 
+    if config.versions.version_source == "ipa":
+        _add_ipa_versions(
+            releases,
+            config,
+            token,
+            warn=lambda msg: print(
+                f"altgen: warning: {msg}", file=sys.stderr
+            ),
+        )
+
     data = build_source(
         config,
         releases,
@@ -218,6 +236,77 @@ def main(argv: list[str] | None = None) -> int:
             f"{n_news} news)"
         )
     return OK
+
+
+def _add_ipa_versions(
+    releases: list[dict],
+    config: AltgenConfig,
+    token: str | None,
+    warn: Callable[[str], None],
+) -> None:
+    """Preload each matching asset's version from its IPA's Info.plist.
+
+    Only releases that can survive the ``max_versions`` cap are
+    downloaded, so a small cap keeps the number of potentially large asset
+    downloads bounded. Releases sharing the cutoff date are included too,
+    since their order depends on the version being fetched. A download or
+    parse failure leaves the asset unset and ``build_source`` falls back
+    to the tag-derived version.
+    """
+    candidates: list[tuple[dict, list[dict]]] = []
+    for release in releases:
+        tag = release.get("tag_name") or ""
+        tag_version = version_from_tag(tag, config.versions.strip_v_prefix)
+        if release.get("draft") or not tag_version:
+            continue
+        if (
+            release.get("prerelease")
+            and not config.versions.include_prereleases
+        ):
+            continue
+        assets = [
+            asset
+            for asset in release.get("assets") or []
+            if config.asset_re.search((asset.get("name") or "").lower())
+        ]
+        if assets:
+            candidates.append((release, assets))
+
+    def published(release: dict) -> str:
+        return short_date(release.get("published_at", ""))
+
+    candidates.sort(key=lambda pair: published(pair[0]), reverse=True)
+    cap = config.versions.max_versions
+    if cap is not None and len(candidates) > cap:
+        # Keep every release sharing the cutoff date: same-day releases
+        # are ordered by version in build_source, which isn't known until
+        # the IPAs are downloaded.
+        cutoff = published(candidates[cap - 1][0])
+        candidates = [
+            pair for pair in candidates if published(pair[0]) >= cutoff
+        ]
+
+    for _release, assets in candidates:
+        for asset in assets:
+            url = asset.get("browser_download_url") or ""
+            if not url:
+                continue
+            name = asset.get("name") or url
+            try:
+                version = fetch_ipa_version(url, token)
+            except GithubError as exc:
+                warn(
+                    f"cannot read the version from {name}: {exc}; "
+                    "falling back to the release tag"
+                )
+                continue
+            if version:
+                asset[IPA_VERSION_KEY] = version
+            else:
+                warn(
+                    f"no version found in the Info.plist of {name}; "
+                    "falling back to the release tag"
+                )
 
 
 def _run_merge(parser: argparse.ArgumentParser, args) -> int:

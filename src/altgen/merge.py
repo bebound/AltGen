@@ -1,11 +1,11 @@
 """Merge multiple apps.json documents into a single AltStore source.
 
 ``apps`` are extracted from the input files and sorted by name
-(case-insensitive); ``news``
-entries are extracted in their given order and combined; root-level
-metadata comes from the merge config or CLI. Duplicate app bundle
-identifiers and duplicate news identifiers are rejected, since a valid
-AltStore source must not contain them.
+(case-insensitive); ``news`` entries are extracted in their given order
+and combined; root-level metadata comes from the merge config or CLI.
+Inputs are merged verbatim: every app and every news entry is kept, even
+when two apps share a ``bundleIdentifier`` or two news entries share an
+``identifier``.
 """
 
 from __future__ import annotations
@@ -22,25 +22,18 @@ def merge_sources(inputs: list[tuple[str, dict]], source: SourceConfig) -> dict:
     document.
 
     App entries are sorted by name (case-insensitive); news entries from
-    each input (root
-    ``news`` plus each app's ``news``) are combined and sorted newest-first
-    by ``date``.
+    each input (root ``news`` plus each app's ``news``) are combined and
+    sorted newest-first by ``date``. Every app and news entry is kept, so
+    duplicate bundle identifiers and duplicate news identifiers are
+    allowed.
     """
     apps: list[dict] = []
     news: list[dict] = []
-    seen_app_ids: dict[str, str] = {}
-    seen_news_ids: dict[str, str] = {}
 
     def add_news(entry, path: str) -> None:
         identifier = entry.get("identifier") if isinstance(entry, dict) else None
         if not isinstance(identifier, str) or not identifier:
             raise MergeError(f"{path}: news entry without identifier")
-        if identifier in seen_news_ids:
-            raise MergeError(
-                f"duplicate news identifier {identifier} in "
-                f"{seen_news_ids[identifier]} and {path}"
-            )
-        seen_news_ids[identifier] = path
         news.append(entry)
 
     for path, doc in inputs:
@@ -55,12 +48,6 @@ def merge_sources(inputs: list[tuple[str, dict]], source: SourceConfig) -> dict:
             bundle_id = app.get("bundleIdentifier")
             if not isinstance(bundle_id, str) or not bundle_id:
                 raise MergeError(f"{path}: app without bundleIdentifier")
-            if bundle_id in seen_app_ids:
-                raise MergeError(
-                    f"duplicate bundleIdentifier {bundle_id} in "
-                    f"{seen_app_ids[bundle_id]} and {path}"
-                )
-            seen_app_ids[bundle_id] = path
             apps.append(app)
             app_news = app.get("news")
             if app_news is not None and not isinstance(app_news, list):

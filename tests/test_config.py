@@ -317,6 +317,12 @@ def test_version_source_defaults_to_release(tmp_path):
     assert config.versions.version_source == "release"
 
 
+def test_version_source_ipa_loaded(tmp_path):
+    toml = MINIMAL_TOML + '\n[versions]\nversion_source = "ipa"\n'
+    config = load_config(write_config(tmp_path, toml))
+    assert config.versions.version_source == "ipa"
+
+
 def test_invalid_version_pattern_regex(tmp_path):
     toml = MINIMAL_TOML + '\n[versions]\nversion_pattern = "("\n'
     with pytest.raises(ConfigError, match="invalid regex"):
@@ -326,7 +332,8 @@ def test_invalid_version_pattern_regex(tmp_path):
 def test_invalid_version_source_rejected(tmp_path):
     toml = MINIMAL_TOML + '\n[versions]\nversion_source = "ipa-name"\n'
     with pytest.raises(
-        ConfigError, match="version_source must be 'release' or 'filename'"
+        ConfigError,
+        match="version_source must be 'release', 'filename', or 'ipa'",
     ):
         load_config(write_config(tmp_path, toml))
 

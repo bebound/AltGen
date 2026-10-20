@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 
 from altgen.config import AltgenConfig
 
+# Asset key where the CLI preloads the version read from the IPA's
+# Info.plist (version_source = "ipa"). Kept out of the output document.
+IPA_VERSION_KEY = "_altgen_ipa_version"
+
 
 def iso_datetime(value: str) -> str:
     """Return an ISO-8601 datetime string; fall back to *now* if empty."""
@@ -66,8 +70,12 @@ def resolve_version(
     With ``version_pattern`` configured, extract the version from the
     release ``name`` (default) or the asset filename (``version_source =
     "filename"``); fall back to the tag-derived version when the pattern
-    does not match or is unset.
+    does not match or is unset. With ``version_source = "ipa"``,
+    ``source_value`` is the version preloaded from the IPA's Info.plist;
+    fall back to the tag when it is empty.
     """
+    if cfg.versions.version_source == "ipa":
+        return source_value or tag_version
     if cfg.versions.version_pattern is None:
         return tag_version
     extracted = extract_match(source_value or "", cfg.version_re)
@@ -226,15 +234,18 @@ def build_source(
             log_skip(f"skip {tag}: no matching assets")
             continue
 
-        # Version comes from the release name (default) or the asset
-        # filename (version_source = "filename"), falling back to the tag.
+        # Version comes from the release name (default), the asset
+        # filename (version_source = "filename"), or the IPA's own
+        # Info.plist (version_source = "ipa", preloaded by the CLI onto the
+        # asset), falling back to the tag.
         release_versions: list[str] = []
         for asset in ipa_assets:
-            source_value = (
-                (release.get("name") or "")
-                if cfg.versions.version_source == "release"
-                else (asset.get("name") or "")
-            )
+            if cfg.versions.version_source == "ipa":
+                source_value = asset.get(IPA_VERSION_KEY) or ""
+            elif cfg.versions.version_source == "filename":
+                source_value = asset.get("name") or ""
+            else:
+                source_value = release.get("name") or ""
             version = resolve_version(cfg, tag_version, source_value)
             release_versions.append(version)
             versions.append(build_version_entry(cfg, release, asset, version))

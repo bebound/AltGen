@@ -73,8 +73,10 @@ class VersionsConfig:
     # being taken from the release tag (which has no version for some
     # projects). Falls back to the tag-derived version on no match.
     version_pattern: str | None = None
-    # Where version_pattern runs: the release "name" (default) or the IPA
-    # asset filename.
+    # Where the version comes from: the release "name" with
+    # version_pattern (default), the IPA asset filename with
+    # version_pattern, or the IPA's own Info.plist (``"ipa"``, for rolling
+    # tags such as ``nightly`` that carry no version).
     version_source: str = "release"
     max_versions: int | None = 1  # default: latest version only; None = all
 
@@ -122,10 +124,10 @@ class AltgenConfig:
             raise ConfigError(
                 f"github repo must be 'owner/name', got {self.github.repo!r}"
             )
-        if self.versions.version_source not in ("release", "filename"):
+        if self.versions.version_source not in ("release", "filename", "ipa"):
             raise ConfigError(
-                f"[versions] version_source must be 'release' or 'filename', "
-                f"got {self.versions.version_source!r}"
+                f"[versions] version_source must be 'release', 'filename', "
+                f"or 'ipa', got {self.versions.version_source!r}"
             )
         for section, tint in (
             ("source", self.source.tint_color),

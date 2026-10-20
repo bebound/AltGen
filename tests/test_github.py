@@ -5,7 +5,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from altgen.github import GithubError, fetch_releases
+from altgen.github import GithubError, fetch_ipa_version, fetch_releases
+
+from conftest import make_ipa_bytes
 
 
 def paged_response(pages, headers=None):
@@ -109,3 +111,70 @@ def test_connection_error_friendly_message():
     ):
         with pytest.raises(GithubError, match="network"):
             fetch_releases("owner/App")
+
+
+# ---------------------------------------------------------------------------
+# IPA asset download (version_source = "ipa")
+# ---------------------------------------------------------------------------
+
+def download_response(content, *, ok=True, status=200):
+    resp = MagicMock()
+    resp.ok = ok
+    resp.status_code = status
+    resp.iter_content.return_value = [content]
+    return resp
+
+
+def test_fetch_ipa_version_streams_asset():
+    ipa = make_ipa_bytes({"CFBundleShortVersionString": "3.8.11"})
+    with patch(
+        "altgen.github.requests.get", return_value=download_response(ipa)
+    ) as get:
+        version = fetch_ipa_version("https://example.com/App.ipa")
+    assert version == "3.8.11"
+    assert get.call_args.kwargs["stream"] is True
+    assert get.call_args.args[0] == "https://example.com/App.ipa"
+    get.return_value.close.assert_called_once()
+
+
+def test_fetch_ipa_version_sends_bearer_header_only_with_token():
+    ipa = make_ipa_bytes({"CFBundleShortVersionString": "1.0.0"})
+    with patch(
+        "altgen.github.requests.get", return_value=download_response(ipa)
+    ) as get:
+        fetch_ipa_version("https://example.com/App.ipa", token="secret")
+    headers = get.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer secret"
+    assert headers["User-Agent"].startswith("altgen/")
+
+
+def test_fetch_ipa_version_http_error():
+    resp = download_response(b"", ok=False, status=500)
+    with patch("altgen.github.requests.get", return_value=resp):
+        with pytest.raises(GithubError, match=r"cannot download .* HTTP 500"):
+            fetch_ipa_version("https://example.com/App.ipa")
+
+
+def test_fetch_ipa_version_connection_error():
+    with patch(
+        "altgen.github.requests.get",
+        side_effect=requests.ConnectionError("refused"),
+    ):
+        with pytest.raises(GithubError, match="cannot download"):
+            fetch_ipa_version("https://example.com/App.ipa")
+
+
+def test_fetch_ipa_version_stream_error():
+    resp = download_response(b"")
+    resp.iter_content.side_effect = requests.ConnectionError("reset")
+    with patch("altgen.github.requests.get", return_value=resp):
+        with pytest.raises(GithubError, match="cannot download"):
+            fetch_ipa_version("https://example.com/App.ipa")
+
+
+def test_fetch_ipa_version_unreadable_archive_returns_empty():
+    with patch(
+        "altgen.github.requests.get",
+        return_value=download_response(b"not a zip"),
+    ):
+        assert fetch_ipa_version("https://example.com/App.ipa") == ""

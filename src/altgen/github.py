@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import tempfile
+
 import requests
 
 from altgen import __version__
+from altgen.ipa import read_ipa_version
 
 API_ROOT = "https://api.github.com"
 
 MAX_PAGES = 100  # safety cap against a malformed pagination chain
+
+# IPAs can be large, so allow a generous read timeout and stream the asset
+# instead of loading it fully into memory.
+DOWNLOAD_TIMEOUT = (30, 300)  # (connect, read)
+DOWNLOAD_CHUNK = 64 * 1024
+SPOOL_MAX_IN_MEMORY = 16 * 1024 * 1024
 
 
 class GithubError(RuntimeError):
@@ -60,6 +69,48 @@ def fetch_releases(
         url = resp.links.get("next", {}).get("url")
 
     return releases
+
+
+def fetch_ipa_version(url: str, token: str | None = None) -> str:
+    """Download an IPA release asset and return the version in its
+    ``Info.plist`` ("" when the archive has no readable app plist).
+
+    The asset is streamed into a spooled temporary file, so a large IPA
+    does not have to fit in memory. Raises :class:`GithubError` on
+    download errors; callers may fall back to the tag-derived version.
+    """
+    headers = {
+        "Accept": "application/octet-stream",
+        "User-Agent": f"altgen/{__version__}",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        resp = requests.get(
+            url, headers=headers, stream=True, timeout=DOWNLOAD_TIMEOUT
+        )
+    except requests.RequestException as exc:
+        raise GithubError(f"cannot download {url}: {exc}") from exc
+
+    try:
+        if not resp.ok:
+            raise GithubError(
+                f"cannot download {url}: HTTP {resp.status_code}"
+            )
+        with tempfile.SpooledTemporaryFile(
+            max_size=SPOOL_MAX_IN_MEMORY
+        ) as tmp:
+            try:
+                for chunk in resp.iter_content(chunk_size=DOWNLOAD_CHUNK):
+                    if chunk:
+                        tmp.write(chunk)
+            except requests.RequestException as exc:
+                raise GithubError(f"cannot download {url}: {exc}") from exc
+            tmp.seek(0)
+            return read_ipa_version(tmp)
+    finally:
+        resp.close()
 
 
 def _friendly_error(repo: str, resp) -> GithubError:

@@ -73,8 +73,9 @@ altgen merge --name MySource --tint-color "#00AEEF" a.json b.json
   required.
 - Merge configs only support `[source]` and `[output]` tables; build-mode
   tables (`[github]`, `[app]`, …) are rejected.
-- A duplicate `bundleIdentifier` or duplicate news `identifier` across
-  inputs is an error (exit 2).
+- Inputs are merged verbatim: duplicate `bundleIdentifier` values and
+  duplicate news `identifier` values across inputs are allowed, and both
+  entries are kept.
 
 See [examples/merge.toml](examples/merge.toml) for a full merge config.
 
@@ -124,7 +125,10 @@ asset_pattern = "\\.ipa$"        # regex, case-insensitive search on asset name
 build_version_pattern = "\\+(\\d+)\\.ipa$"  # group 1 = buildVersion; no match → key omitted
 # version_pattern = "…"         # optional: extract version with this regex instead of the tag
                                  # (for projects whose tags lack a version); no match → tag-derived version
-# version_source = "release"     # where version_pattern runs: "release" (default, release name) or "filename" (IPA asset name)
+# version_source = "release"     # "release" (default, version_pattern on the release name),
+                                 # "filename" (version_pattern on the IPA asset name), or
+                                 # "ipa" (read the version from the IPA's Info.plist;
+                                 # version_pattern is ignored)
 max_versions = 1                 # default: newest version only; 0 = all versions
 
 [news]
@@ -150,6 +154,14 @@ path = "apps.json"               # resolved against THIS file's directory
   `youproextra-ipa2`), set `version_pattern` to extract it from the release
   name or IPA filename instead; on no match the version falls back to the
   tag-derived value.
+- For rolling tags such as `nightly`, set `version_source = "ipa"`: altgen
+  downloads each candidate IPA and reads `CFBundleShortVersionString`
+  (falling back to `CFBundleVersion`) from the main app's `Info.plist`,
+  so the emitted version matches the build inside the IPA. The tag is
+  still used for news identifiers. Downloads are limited to releases that
+  can survive the `max_versions` cap; on a download or parse failure
+  altgen warns and falls back to the tag-derived version. `version_pattern`
+  is ignored in this mode.
 - By default only the newest version is emitted (`max_versions = 1`); set
   `max_versions = 0` (or `--max-versions 0`) to include all versions.
 - News follows the same convention: one news entry per release, kept only

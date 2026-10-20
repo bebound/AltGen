@@ -102,23 +102,24 @@ def test_merge_root_optionals():
     assert data["iconURL"] == "https://e.com/i.png"
 
 
-def test_merge_duplicate_bundle_identifier():
-    doc1 = make_doc(apps=[make_app(bundle_id="com.x")])
-    doc2 = make_doc(apps=[make_app(bundle_id="com.x")])
-    with pytest.raises(
-        MergeError, match=r"duplicate bundleIdentifier com\.x in a\.json and b\.json"
-    ):
-        merge_sources([("a.json", doc1), ("b.json", doc2)], SOURCE)
+def test_merge_keeps_duplicate_bundle_identifiers():
+    doc1 = make_doc(apps=[make_app(bundle_id="com.x", name="First")])
+    doc2 = make_doc(apps=[make_app(bundle_id="com.x", name="Second")])
+    data = merge_sources([("a.json", doc1), ("b.json", doc2)], SOURCE)
+    # duplicate bundle ids are kept verbatim, not rejected
+    assert [a["bundleIdentifier"] for a in data["apps"]] == ["com.x", "com.x"]
+    assert [a["name"] for a in data["apps"]] == ["First", "Second"]
 
 
-def test_merge_duplicate_news_identifier():
+def test_merge_keeps_duplicate_news_identifiers():
     doc1 = make_doc(apps=[make_app(bundle_id="com.a", news=[make_news()])])
     doc2 = make_doc(apps=[make_app(bundle_id="com.b", news=[make_news()])])
-    with pytest.raises(
-        MergeError,
-        match=r"duplicate news identifier release-1\.0\.0 in a\.json and b\.json",
-    ):
-        merge_sources([("a.json", doc1), ("b.json", doc2)], SOURCE)
+    data = merge_sources([("a.json", doc1), ("b.json", doc2)], SOURCE)
+    # duplicate news ids are kept verbatim, not rejected
+    assert [n["identifier"] for n in data["news"]] == [
+        "release-1.0.0",
+        "release-1.0.0",
+    ]
 
 
 def test_merge_invalid_documents():
@@ -217,11 +218,13 @@ def test_cli_merge_unreadable_file_exits_1(tmp_path, capsys):
     assert "cannot read" in capsys.readouterr().err
 
 
-def test_cli_merge_duplicate_apps_exit_2(tmp_path, capsys):
+def test_cli_merge_writes_duplicate_apps(tmp_path, capsys):
     f1 = write_doc(tmp_path, "a.json", make_doc(apps=[make_app(bundle_id="com.x")]))
     f2 = write_doc(tmp_path, "b.json", make_doc(apps=[make_app(bundle_id="com.x")]))
-    assert main(["merge", str(f1), str(f2), "--name", "M"]) == 2
-    assert "duplicate bundleIdentifier" in capsys.readouterr().err
+    out = tmp_path / "merged.json"
+    assert main(["merge", str(f1), str(f2), "--name", "M", "-o", str(out)]) == 0
+    data = json.loads(out.read_text())
+    assert [a["bundleIdentifier"] for a in data["apps"]] == ["com.x", "com.x"]
 
 
 def test_cli_merge_quiet(tmp_path, capsys):

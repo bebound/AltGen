@@ -1,6 +1,9 @@
 """Shared factories and helpers for altgen tests."""
 
+import io
 import json
+import plistlib
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -51,6 +54,23 @@ def make_asset(name="App_ios_1.2.3+45.ipa", size=12345, url=None):
 
 def make_ipa_asset(version="1.2.3", build="45", size=12345):
     return make_asset(f"App_ios_{version}+{build}.ipa", size=size)
+
+
+def make_ipa_bytes(info=None, extra=None) -> bytes:
+    """A minimal IPA (zip) with ``Payload/App.app/Info.plist``.
+
+    ``info`` is a dict written to that plist; pass ``None`` to omit it.
+    ``extra`` maps additional archive members to their contents.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        if info is not None:
+            archive.writestr(
+                "Payload/App.app/Info.plist", plistlib.dumps(info)
+            )
+        for name, data in (extra or {}).items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
 
 
 def make_config(**overrides) -> AltgenConfig:
