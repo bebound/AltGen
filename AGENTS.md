@@ -17,7 +17,7 @@ uv run pytest      # run the test suite (fully offline)
 uv build           # build sdist + wheel
 ```
 
-Requires Python >= 3.10. The virtualenv is `.venv/`.
+Requires Python >= 3.11. The virtualenv is `.venv/`.
 
 - Use `jq` to read/parse JSON files (fixtures, example outputs, etc.).
 

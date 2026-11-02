@@ -7,13 +7,9 @@ snake_case TOML keys are mapped to AltStore's camelCase JSON keys.
 from __future__ import annotations
 
 import re
+import tomllib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
-    import tomli as tomllib
 
 
 class ConfigError(Exception):
