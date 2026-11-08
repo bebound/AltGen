@@ -179,8 +179,9 @@ path = "apps.json"               # resolved against THIS file's directory
   `{tag}`, `{date}` placeholders.
 - A release with no matching asset contributes nothing — not even a news
   entry. One news entry is emitted per release that has assets.
-- Empty output (no releases, only drafts, …) is a valid source: altgen
-  warns on stderr and exits 0.
+- No output (no releases, only drafts/pre-releases, or no asset matching
+  `asset_pattern`) is an error: altgen reports it on stderr, writes no
+  `apps.json`, and exits 1 (`-v` shows why each release was skipped).
 
 ## CLI
 
@@ -206,8 +207,8 @@ altgen merge APPS_JSON… [-c PATH] [--name] [--subtitle] [--description]
 - `altgen merge` combines apps.json files; see [Merge sources](#merge-sources).
 - `-v` logs skipped releases (draft / prerelease / no matching assets) to
   stderr; `-q` silences the success message.
-- Exit codes: `0` success, `1` GitHub, IO, or write error, `2` usage or
-  configuration error.
+- Exit codes: `0` success, `1` GitHub/IO/write error or no matching IPA
+  releases, `2` usage or configuration error.
 
 ## Development
 

@@ -151,20 +151,41 @@ def test_toml_output_resolves_against_config_dir(tmp_path, run, monkeypatch):
     assert not (elsewhere / "out" / "apps.json").exists()
 
 
-def test_empty_releases_exit_zero_with_warning(tmp_path, run):
+def test_no_releases_errors_without_writing_output(tmp_path, run):
+    out_path = tmp_path / "apps.json"
     code, out, err, _ = run(
         [
             "--repo", "owner/App",
             "--app-name", "App",
             "--bundle-id", "com.owner.app",
-            "-o", str(tmp_path / "apps.json"),
+            "-o", str(out_path),
         ],
         releases=[],
     )
-    assert code == 0
-    assert "warning: no matching releases" in err
-    data = json.loads((tmp_path / "apps.json").read_text())
-    assert data["apps"][0]["versions"] == []
+    assert code == 1
+    assert "no matching IPA releases found for owner/App" in err
+    assert "Wrote" not in out
+    assert not out_path.exists()
+
+
+def test_releases_without_matching_asset_error(tmp_path, run):
+    # Like a repo whose IPA asset names no longer match the configured
+    # asset_pattern: no IPA was obtained, so the run fails.
+    out_path = tmp_path / "apps.json"
+    code, out, err, _ = run(
+        [
+            "--repo", "owner/App",
+            "--app-name", "App",
+            "--bundle-id", "com.owner.app",
+            "-o", str(out_path),
+        ],
+        releases=[
+            make_release(tag="v1.0.0", assets=[make_asset("App.zip")]),
+        ],
+    )
+    assert code == 1
+    assert "no matching IPA releases found" in err
+    assert not out_path.exists()
 
 
 def test_github_error_exits_1(monkeypatch, capsys):

@@ -3,7 +3,7 @@
 Two modes: build a source from GitHub Releases (default), or merge
 existing apps.json files (``altgen merge``).
 
-Exit codes: 0 success (including an empty source), 1 GitHub/IO error,
+Exit codes: 0 success, 1 GitHub/IO error or no matching IPA releases,
 2 usage or configuration error.
 """
 
@@ -211,6 +211,17 @@ def main(argv: list[str] | None = None) -> int:
         releases,
         log=(lambda msg: print(msg, file=sys.stderr)) if args.verbose else None,
     )
+    versions = data["apps"][0]["versions"]
+    if not versions:
+        # An empty source is almost always a broken repo or config (no
+        # releases, all filtered out, or an asset pattern matching
+        # nothing), so fail instead of publishing an empty apps.json.
+        print(
+            f"altgen: no matching IPA releases found for "
+            f"{config.github.repo} (use -v for details)",
+            file=sys.stderr,
+        )
+        return RUNTIME_ERROR
     text = serialize(data)
 
     try:
@@ -220,20 +231,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"altgen: cannot write {config.output.path}: {exc}", file=sys.stderr)
         return RUNTIME_ERROR
 
-    versions = data["apps"][0]["versions"]
     n_versions = len(versions)
     n_news = len(data["news"])
-    if not n_versions:
-        print(
-            f"warning: no matching releases found for {config.github.repo}",
-            file=sys.stderr,
-        )
     if not args.quiet:
-        latest = versions[0]["version"] if n_versions else None
-        latest_part = f", latest {latest}" if latest else ""
+        latest = versions[0]["version"]
         print(
-            f"Wrote {config.output.path} ({n_versions} versions{latest_part}, "
-            f"{n_news} news)"
+            f"Wrote {config.output.path} ({n_versions} versions, "
+            f"latest {latest}, {n_news} news)"
         )
     return OK
 

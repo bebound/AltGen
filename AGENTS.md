@@ -42,7 +42,8 @@ Requires Python >= 3.11. The virtualenv is `.venv/`.
   identifiers.
 - `src/altgen/cli.py` — argparse entry point. Default mode builds from
   GitHub; the `merge` subcommand combines apps.json files. Exit codes:
-  `0` success, `1` runtime (GitHub API / IO / write), `2` usage/config.
+  `0` success, `1` runtime (GitHub API / IO / write / no matching IPA
+  releases), `2` usage/config.
 - `tests/` — pytest, fully offline. `tests/fixtures/` holds captured
   GitHub API responses.
 - `examples/piliplus.toml` — reference config. `tests/test_equivalence.py`
