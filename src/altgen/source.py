@@ -132,8 +132,9 @@ def build_news_entry(
     """One AltStore news entry for one release.
 
     Key order follows the AltStore news spec. ``appID`` is the app's
-    ``bundle_identifier``. The date is a full ISO timestamp, and the
-    identifier is derived from the app name and release tag
+    ``bundle_identifier``. The date is the short release date
+    (``YYYY-MM-DD``, like version entries), and the identifier is derived
+    from the app name and release tag
     (``<app-name>-release-<tag>``). Title and caption templates may use
     ``{name}``, ``{version}``, ``{tag}``, and ``{date}`` (humanized, e.g.
     07 Aug 2026) placeholders.
@@ -152,7 +153,7 @@ def build_news_entry(
         "title": title,
         "identifier": f"{cfg.app.name}-release-{tag}",
         "caption": caption,
-        "date": iso_datetime(published),
+        "date": short_date(published),
     }
     if cfg.app.tint_color is not None:
         entry["tintColor"] = cfg.app.tint_color
@@ -208,6 +209,9 @@ def build_source(
 
     news: list[dict] = []
     news_release_idx: list[int] = []  # parallel to news: the source release
+    # The emitted news date is a short date, so keep the full release
+    # timestamp alongside to order same-day releases.
+    news_published: list[str] = []
     versions: list[dict] = []
     version_release_idx: list[int] = []  # parallel to versions: the source release
     for rel_idx, release in enumerate(releases):
@@ -256,6 +260,7 @@ def build_source(
                 build_news_entry(cfg, release, release_versions[0], tag)
             )
             news_release_idx.append(rel_idx)
+            news_published.append(release.get("published_at") or "")
 
     # Sort versions by (date, version) desc, keeping their source release
     # aligned. Versions compare numerically (0.3.12 > 0.3.9), so releases
@@ -282,14 +287,27 @@ def build_source(
         # that actually kept a version entry keep their news — news count
         # then tracks the kept releases.
         kept_releases = set(version_release_idx)
-        news = [
-            n
-            for n, rel_idx in zip(news, news_release_idx)
+        kept = [
+            (n, published)
+            for n, rel_idx, published in zip(
+                news, news_release_idx, news_published
+            )
             if rel_idx in kept_releases
         ]
+        news = [n for n, _ in kept]
+        news_published = [published for _, published in kept]
     app_entry["versions"] = versions
 
-    news.sort(key=lambda n: n.get("date", ""), reverse=True)
+    # Sort newest-first by the full release timestamp: the short date
+    # cannot order releases published on the same day.
+    news = [
+        n
+        for n, _ in sorted(
+            zip(news, news_published),
+            key=lambda p: iso_datetime(p[1]),
+            reverse=True,
+        )
+    ]
     if cfg.news.max_entries is not None:
         news = news[: cfg.news.max_entries]
     data["news"] = news
