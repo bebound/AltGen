@@ -349,8 +349,12 @@ def test_news_sorted_by_date_desc():
         "App-release-v2.0.0",
         "App-release-v1.0.0",
     ]
-    # News dates are short dates, like version-entry dates.
-    assert [n["date"] for n in data["news"]] == ["2024-02-01", "2024-01-01"]
+    # News dates carry the full release timestamp, like version-entry
+    # dates.
+    assert [n["date"] for n in data["news"]] == [
+        "2024-02-01T00:00:00Z",
+        "2024-01-01T00:00:00Z",
+    ]
 
 
 def test_same_day_news_sorted_by_full_timestamp():
@@ -368,7 +372,11 @@ def test_same_day_news_sorted_by_full_timestamp():
         "App-release-v0.3.10",
         "App-release-v0.3.9",
     ]
-    assert {n["date"] for n in data["news"]} == {"2026-08-27"}
+    assert [n["date"] for n in data["news"]] == [
+        "2026-08-27T10:28:37Z",
+        "2026-08-27T08:58:40Z",
+        "2026-08-27T08:32:20Z",
+    ]
 
 
 def test_default_keeps_only_latest_version():
@@ -442,10 +450,10 @@ def test_news_entry_fields_and_template():
     ]
     assert entry["appID"] == "com.x.y"
     assert entry["title"] == "MyApp — 1.0.0!"
-    # identifier prefixes the raw tag with the app name; the date keeps
-    # only the release's day
+    # identifier prefixes the raw tag with the app name; the date is the
+    # full release timestamp
     assert entry["identifier"] == "MyApp-release-v1.0.0"
-    assert entry["date"] == "2024-01-01"
+    assert entry["date"] == "2024-01-01T00:00:00Z"
     assert entry["caption"] == "New MyApp update available!"
     assert entry["imageURL"] == "https://e.com/news.png"
     assert entry["url"] == "https://github.com/owner/App/releases/tag/v1.0.0"
